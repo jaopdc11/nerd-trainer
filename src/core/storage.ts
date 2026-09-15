@@ -34,6 +34,20 @@ export interface Partida {
   readonly duracaoMs: number
   readonly erros: number
   readonly emISO: string
+  /** Qual run gerou esta partida, para poder atualizá-la se ela continuar. */
+  readonly runId?: string
+}
+
+/**
+ * Uma run já gravada, com a pontuação que tinha quando foi gravada.
+ *
+ * Guardar a pontuação é o que permite distinguir dois casos que antes eram o
+ * mesmo: gravar a mesma coisa de novo (ignora) e **terminar uma partida que já
+ * tinha sido salva pela metade** (atualiza).
+ */
+export interface RunGravada {
+  readonly id: string
+  readonly pontuacao: number
 }
 
 export interface Entrada {
@@ -46,8 +60,8 @@ export interface Entrada {
    * média, consistência e "quantas vezes por dia" — não só a escada de recordes.
    */
   readonly historico: readonly Partida[]
-  /** Últimos runIds gravados, para não contar a mesma partida duas vezes. */
-  readonly ultimosRuns: readonly string[]
+  /** Últimas runs gravadas, para não contar a mesma partida duas vezes. */
+  readonly ultimosRuns: readonly RunGravada[]
 }
 
 export interface Banco {
@@ -151,7 +165,19 @@ function validarPartida(x: unknown): Partida | null {
     duracaoMs: x.duracaoMs,
     erros: numeroFinito(x.erros) ? x.erros : 0,
     emISO: x.emISO,
+    ...(typeof x.runId === 'string' ? { runId: x.runId } : {}),
   }
+}
+
+/**
+ * Aceita o formato antigo, em que `ultimosRuns` era uma lista de strings.
+ * Uma run legada entra com pontuação máxima: ela já terminou, então qualquer
+ * regravação deve continuar sendo ignorada, como era antes.
+ */
+function validarRun(x: unknown): RunGravada | null {
+  if (typeof x === 'string') return { id: x, pontuacao: Number.MAX_SAFE_INTEGER }
+  if (!ehObjeto(x) || typeof x.id !== 'string') return null
+  return { id: x.id, pontuacao: numeroFinito(x.pontuacao) ? x.pontuacao : 0 }
 }
 
 /** Valida uma entrada isoladamente. Entrada ruim é descartada, as boas ficam. */
@@ -176,7 +202,7 @@ function validarEntrada(x: unknown): Entrada | null {
     ultimaEmISO: typeof x.ultimaEmISO === 'string' ? x.ultimaEmISO : recorde.emISO,
     historico,
     ultimosRuns: Array.isArray(x.ultimosRuns)
-      ? x.ultimosRuns.filter((r): r is string => typeof r === 'string')
+      ? x.ultimosRuns.map(validarRun).filter((r): r is RunGravada => r !== null)
       : [],
   }
 }
@@ -270,9 +296,21 @@ export function registrar(banco: Banco, r: ResultadoRun): Gravacao {
   const chave = chaveRecorde(r.jogoId, r.modoId)
   const anterior = banco.entradas[chave]
 
-  if (anterior?.ultimosRuns.includes(r.runId)) {
-    return { banco, recordeNovo: false, entrada: anterior }
+  const jaGravada = anterior?.ultimosRuns.find((x) => x.id === r.runId)
+
+  // A mesma run chegando de novo sem ter avançado: nada a fazer.
+  if (jaGravada && r.pontuacao <= jaGravada.pontuacao) {
+    return { banco, recordeNovo: false, entrada: anterior as Entrada }
   }
+
+  /*
+   * A run já foi gravada, mas agora vem com pontuação maior: é uma partida que
+   * foi salva pela metade (ao trocar de aba, por exemplo) e depois terminou.
+   * Ela ATUALIZA a partida existente em vez de criar outra — senão uma única
+   * partida contaria duas vezes, e, pior, o desfecho real seria descartado pela
+   * idempotência e o recorde ficaria congelado no parcial.
+   */
+  const atualizando = jaGravada !== undefined
 
   const agora = new Date().toISOString()
   const candidato: Recorde = {
@@ -291,15 +329,23 @@ export function registrar(banco: Banco, r: ResultadoRun): Gravacao {
     duracaoMs: r.duracaoMs,
     erros: r.erros,
     emISO: agora,
+    runId: r.runId,
   }
+
+  const historicoAnterior = atualizando
+    ? (anterior?.historico ?? []).filter((p) => p.runId !== r.runId)
+    : (anterior?.historico ?? [])
 
   const entrada: Entrada = {
     recorde,
-    partidas: (anterior?.partidas ?? 0) + 1,
+    partidas: (anterior?.partidas ?? 0) + (atualizando ? 0 : 1),
     ultimaPontuacao: r.pontuacao,
     ultimaEmISO: agora,
-    historico: [partida, ...(anterior?.historico ?? [])].slice(0, LIMITE_HISTORICO),
-    ultimosRuns: [r.runId, ...(anterior?.ultimosRuns ?? [])].slice(0, MEMORIA_DE_RUNS),
+    historico: [partida, ...historicoAnterior].slice(0, LIMITE_HISTORICO),
+    ultimosRuns: [
+      { id: r.runId, pontuacao: r.pontuacao },
+      ...(anterior?.ultimosRuns ?? []).filter((x) => x.id !== r.runId),
+    ].slice(0, MEMORIA_DE_RUNS),
   }
 
   return {
