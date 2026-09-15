@@ -114,8 +114,10 @@ export function useGenerator(
   // conta. Sem isso, quem fizesse 50 acertos e desistisse perdia os 50.
   const estadoRef = useRef(estado)
   estadoRef.current = estado
+  // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
+  // enchia o histórico de runs de zero e inflava o contador de partidas.
   useSaveOnExit(
-    () => estadoRef.current === 'jogando',
+    () => estadoRef.current === 'jogando' && acertosRef.current > 0,
     () => finalizar(acertosRef.current, errosRef.current),
   )
 

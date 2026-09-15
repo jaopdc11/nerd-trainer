@@ -6,6 +6,7 @@ import type { Entrada } from '@/core/storage'
 import { ROTULO_CATEGORIA } from '@/core/types'
 import type { JogoModule } from '@/core/types'
 import { useRecordes } from '@/core/useRecords'
+import { Nerdometro } from './Nerdometro'
 import { CORES_CATEGORIA, Etiqueta } from './ui'
 
 export function Menu() {
@@ -18,6 +19,8 @@ export function Menu() {
   return (
     <div className="flex flex-col gap-10">
       <Capa partidas={partidas} jogados={jogados} />
+
+      <Nerdometro banco={banco} />
 
       {persistenciaIndisponivel() && (
         <p className="rounded-xl border border-quase/40 bg-quase-fundo/60 px-4 py-3 text-sm text-quase">
@@ -62,9 +65,6 @@ function Capa({ partidas, jogados }: { partidas: number; jogados: number }) {
           <h1 className="fonte-display text-5xl leading-none font-bold sm:text-6xl">
             Nerd<span className="text-acento">Trainer</span>
           </h1>
-          <p className="max-w-md text-lg text-suave">
-            Um pouco por dia, tentando bater o recorde de ontem.
-          </p>
         </div>
 
         <a

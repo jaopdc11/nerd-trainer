@@ -309,6 +309,30 @@ export function registrar(banco: Banco, r: ResultadoRun): Gravacao {
   }
 }
 
+/**
+ * Descarta entradas de jogos que não existem mais.
+ *
+ * Um jogo removido — ou um modo, como os `formulas::nome` de quando havia
+ * seleção de modo — deixa a entrada órfã no storage para sempre, contando nas
+ * estatísticas de um jogo que ninguém mais vê. Quem sabe quais ids são válidos
+ * é o registry, e `core/storage` não pode importá-lo sem criar ciclo; por isso
+ * a lista vem de fora.
+ */
+export function limparOrfas(banco: Banco, idsValidos: readonly string[]): Banco {
+  const validos = new Set(idsValidos)
+  const entradas: Record<string, Entrada> = {}
+  let mudou = false
+
+  for (const [chave, entrada] of Object.entries(banco.entradas)) {
+    // A chave pode ser "jogo" ou "jogo::modo"; o jogo é o que importa.
+    const jogoId = chave.split('::')[0] ?? chave
+    if (validos.has(jogoId) && !chave.includes('::')) entradas[chave] = entrada
+    else mudou = true
+  }
+
+  return mudou ? { versao: VERSAO_ATUAL, entradas } : banco
+}
+
 export function apagarTudo(): Banco {
   salvar(VAZIO)
   return VAZIO

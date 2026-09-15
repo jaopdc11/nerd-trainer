@@ -203,8 +203,10 @@ export function useGrid(
   estadoRef.current = estado
   acertosRef.current = acertos
   errosRef.current = erros
+  // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
+  // enchia o histórico de runs de zero e inflava o contador de partidas.
   useSaveOnExit(
-    () => estadoRef.current === 'jogando',
+    () => estadoRef.current === 'jogando' && acertosRef.current > 0,
     () => finalizar(acertosRef.current, errosRef.current),
   )
 

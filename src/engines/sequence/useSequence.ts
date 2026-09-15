@@ -139,8 +139,10 @@ export function useSequence(
   const indiceRef = useRef(indice)
   estadoRef.current = estado
   indiceRef.current = indice
+  // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
+  // enchia o histórico de runs de zero e inflava o contador de partidas.
   useSaveOnExit(
-    () => estadoRef.current === 'jogando',
+    () => estadoRef.current === 'jogando' && indiceRef.current > 0,
     () => finalizar(indiceRef.current, false, 0),
   )
 

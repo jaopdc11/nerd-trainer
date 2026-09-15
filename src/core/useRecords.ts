@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
+import { JOGOS } from './registry'
 import {
   apagarTudo,
   carregar,
@@ -9,6 +10,7 @@ import {
   persistir,
   registrar,
 } from './storage'
+import { limparOrfas } from './storage'
 import type { Banco, Entrada } from './storage'
 import type { ResultadoRun } from './types'
 
@@ -18,7 +20,12 @@ import type { ResultadoRun } from './types'
  * abertas não divergem.
  */
 
-let banco: Banco = carregar()
+/**
+ * Na carga, descarta entradas de jogos e modos que não existem mais — sem isso,
+ * um jogo removido segue contando nas estatísticas para sempre. O registry é
+ * importado aqui, e não em `storage`, para não criar ciclo.
+ */
+let banco: Banco = limparOrfas(carregar(), JOGOS.map((j) => j.id))
 const inscritos = new Set<() => void>()
 
 function notificar(): void {
@@ -39,7 +46,7 @@ function ler(): Banco {
 // Outra aba gravou: recarrega para não sobrescrever o recorde feito lá.
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', () => {
-    banco = carregar()
+    banco = limparOrfas(carregar(), JOGOS.map((j) => j.id))
     notificar()
   })
 }
