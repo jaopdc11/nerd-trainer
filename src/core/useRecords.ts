@@ -4,6 +4,8 @@ import {
   carregar,
   chaveRecorde,
   entradaDe,
+  exportarJSON,
+  importarJSON,
   persistir,
   registrar,
 } from './storage'
@@ -48,6 +50,10 @@ export interface ApiRecordes {
   /** Grava a partida e devolve se foi recorde novo. */
   registrarRun(r: ResultadoRun): boolean
   limparTudo(): void
+  /** JSON com tudo, para levar os recordes para outra máquina. */
+  exportar(): string
+  /** Substitui o banco pelo JSON dado. `false` se o texto não for válido. */
+  importar(texto: string): boolean
 }
 
 export function useRecordes(): ApiRecordes {
@@ -73,7 +79,18 @@ export function useRecordes(): ApiRecordes {
     [atual],
   )
 
-  return { banco: atual, recordeDe, registrarRun, limparTudo }
+  const exportar = useCallback(() => exportarJSON(banco), [])
+
+  const importar = useCallback((texto: string) => {
+    const novo = importarJSON(texto)
+    if (!novo) return false
+    banco = novo
+    persistir(banco)
+    notificar()
+    return true
+  }, [])
+
+  return { banco: atual, recordeDe, registrarRun, limparTudo, exportar, importar }
 }
 
 export { chaveRecorde }

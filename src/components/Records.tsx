@@ -14,7 +14,7 @@ import { Botao, CORES_CATEGORIA, Etiqueta, Painel } from './ui'
  * atual — dá para ver se você está melhorando ou só repetindo o mesmo número.
  */
 export function Records() {
-  const { banco, recordeDe, limparTudo } = useRecordes()
+  const { banco, recordeDe, limparTudo, exportar, importar } = useRecordes()
   const temAlgo = Object.keys(banco.entradas).length > 0
 
   const linhas = JOGOS.map((jogo) => ({ jogo, entrada: recordeDe(jogo.id) })).filter(
@@ -54,7 +54,7 @@ export function Records() {
             ))}
           </ul>
 
-          <Ferramentas onLimpar={limparTudo} />
+          <Ferramentas onLimpar={limparTudo} exportar={exportar} importar={importar} />
         </>
       )}
     </div>
@@ -208,11 +208,61 @@ function Evolucao({ historico }: { historico: readonly Partida[] }) {
   )
 }
 
-function Ferramentas({ onLimpar }: { onLimpar: () => void }) {
+function Ferramentas({
+  onLimpar,
+  exportar,
+  importar,
+}: {
+  onLimpar: () => void
+  exportar: () => string
+  importar: (texto: string) => boolean
+}) {
   const [confirmando, setConfirmando] = useState(false)
+  const [json, setJson] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  const copiar = async () => {
+    const texto = exportar()
+    setJson(texto)
+    try {
+      await navigator.clipboard.writeText(texto)
+      setAviso('copiado para a área de transferência')
+    } catch {
+      // Sem permissão de clipboard (ou http sem localhost): o textarea abaixo
+      // continua servindo para copiar à mão.
+      setAviso('selecione o texto abaixo e copie')
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3 border-t border-borda pt-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Botao variante="secundario" tamanho="md" onClick={copiar}>
+          Exportar recordes
+        </Botao>
+        <Botao
+          variante="secundario"
+          tamanho="md"
+          onClick={() => {
+            const texto = window.prompt('Cole aqui o JSON exportado:')
+            if (texto === null) return
+            setAviso(importar(texto) ? 'recordes importados' : 'JSON inválido — nada mudou')
+          }}
+        >
+          Importar
+        </Botao>
+        {aviso && <span className="text-sm text-suave">{aviso}</span>}
+      </div>
+
+      {json !== null && (
+        <textarea
+          readOnly
+          value={json}
+          onFocus={(e) => e.currentTarget.select()}
+          className="h-40 w-full rounded-xl border border-borda bg-fundo-alt p-3 font-mono text-xs text-suave"
+        />
+      )}
+
       {confirmando ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-erro">Apagar todos os recordes? Não dá para desfazer.</p>
