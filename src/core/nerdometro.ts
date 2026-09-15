@@ -104,18 +104,22 @@ export const FAIXAS: readonly Faixa[] = [
   {
     minimo: 70,
     titulo: 'Enciclopédia ambulante',
-    lema: 'é você que pausa o filme pra explicar o erro de física',
+    lema: 'seu último date foi explicando a tabela periódica',
   },
   {
     minimo: 55,
     titulo: 'Nerd de carteirinha',
-    lema: 'já ganhou discussão na internet com fonte e tudo',
+    lema: 'seus amigos já mudam de assunto quando você começa a falar',
   },
   { minimo: 40, titulo: 'Nerd assumido', lema: 'assumiu de vez, agora não tem volta' },
-  { minimo: 25, titulo: 'Estudante aplicado', lema: 'começou a preocupar a família' },
-  { minimo: 10, titulo: 'Curioso', lema: 'ainda dá tempo de sair dessa' },
-  { minimo: 1, titulo: 'Só passando', lema: 'entrou, olhou e saiu de fininho' },
-  { minimo: 0, titulo: 'Ainda não começou', lema: 'joga alguma coisa aí, vai' },
+  {
+    minimo: 25,
+    titulo: 'Estudante aplicado',
+    lema: 'ainda dá pra fingir que é normal, aproveita',
+  },
+  { minimo: 10, titulo: 'Curioso', lema: 'fraco. nem nerd direito você é' },
+  { minimo: 1, titulo: 'Só passando', lema: 'entrou, se assustou e fugiu' },
+  { minimo: 0, titulo: 'Ainda não começou', lema: 'zero. abriu isso aqui pra quê?' },
 ]
 
 export interface Nerdometro {
