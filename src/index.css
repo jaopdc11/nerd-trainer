@@ -1,31 +1,67 @@
 @import 'tailwindcss';
 
 /*
- * Paleta única do app, declarada como tokens do Tailwind v4 (CSS-first, sem
- * tailwind.config.js). Tema escuro fixo: o jogo é feito para sessões curtas à
- * noite, e um seletor de tema só acrescentaria estado sem acrescentar valor.
+ * Sistema visual do Nerd Trainer.
+ *
+ * Direção: terminal noturno. Fundo quase preto azulado, uma malha discreta ao
+ * fundo, tipografia mono para tudo que é número (porque número é o conteúdo do
+ * jogo) e um acento neon usado com parcimônia — ele marca só o que é progresso
+ * e acerto, então quando aparece, significa alguma coisa.
+ *
+ * Cada categoria tem sua cor. Não é decoração: é o que deixa o menu legível de
+ * relance e dá identidade a cada jogo sem precisar de ilustração.
  */
 @theme {
-  --color-fundo: oklch(0.17 0.02 265);
-  --color-superficie: oklch(0.22 0.025 265);
-  --color-superficie-alta: oklch(0.27 0.03 265);
-  --color-borda: oklch(0.34 0.03 265);
-  --color-texto: oklch(0.95 0.01 265);
-  --color-suave: oklch(0.7 0.02 265);
-  --color-tenue: oklch(0.55 0.02 265);
+  /* superfícies, do mais fundo ao mais alto */
+  --color-fundo: oklch(0.15 0.018 265);
+  --color-fundo-alt: oklch(0.18 0.02 265);
+  --color-superficie: oklch(0.21 0.022 265);
+  --color-superficie-alta: oklch(0.26 0.026 265);
+  --color-borda: oklch(0.31 0.028 265);
+  --color-borda-forte: oklch(0.42 0.035 265);
 
-  --color-acento: oklch(0.78 0.16 165);
-  --color-acento-fundo: oklch(0.3 0.06 165);
-  --color-erro: oklch(0.68 0.19 25);
-  --color-erro-fundo: oklch(0.3 0.08 25);
-  --color-quase: oklch(0.8 0.15 85);
-  --color-quase-fundo: oklch(0.32 0.07 85);
+  /* texto */
+  --color-texto: oklch(0.96 0.008 265);
+  --color-suave: oklch(0.74 0.018 265);
+  --color-tenue: oklch(0.56 0.02 265);
 
-  --font-mono:
-    'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* acento e estados */
+  --color-acento: oklch(0.82 0.17 162);
+  --color-acento-forte: oklch(0.88 0.19 162);
+  --color-acento-fundo: oklch(0.32 0.07 162);
+  --color-erro: oklch(0.7 0.19 22);
+  --color-erro-fundo: oklch(0.31 0.09 22);
+  --color-quase: oklch(0.82 0.15 85);
+  --color-quase-fundo: oklch(0.33 0.08 85);
 
+  /* uma cor por categoria */
+  --color-mat: oklch(0.78 0.15 235);
+  --color-mat-fundo: oklch(0.3 0.07 235);
+  --color-fis: oklch(0.76 0.16 300);
+  --color-fis-fundo: oklch(0.3 0.08 300);
+  --color-qui: oklch(0.8 0.15 55);
+  --color-qui-fundo: oklch(0.32 0.08 55);
+
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --animate-surgir: surgir 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   --animate-tremer: tremer 0.3s ease-in-out;
-  --animate-surgir: surgir 0.18s ease-out;
+  --animate-brilho: brilho 0.6s ease-out;
+  --animate-subir-ponto: subir-ponto 0.7s ease-out forwards;
+  --animate-respirar: respirar 2.4s ease-in-out infinite;
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes tremer {
@@ -34,21 +70,42 @@
     transform: translateX(0);
   }
   25% {
-    transform: translateX(-5px);
+    transform: translateX(-6px);
   }
   75% {
-    transform: translateX(5px);
+    transform: translateX(6px);
   }
 }
 
-@keyframes surgir {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
+/* Pulso de luz que percorre a borda quando algo é aceito. */
+@keyframes brilho {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-acento) 55%, transparent);
   }
-  to {
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+/* O "+1" que sobe e some a cada acerto. */
+@keyframes subir-ponto {
+  0% {
     opacity: 1;
-    transform: none;
+    transform: translateY(0) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px) scale(1.1);
+  }
+}
+
+@keyframes respirar {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
   }
 }
 
@@ -64,14 +121,78 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-fundo);
   color: var(--color-texto);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+
+  /*
+   * Malha de fundo: dois gradientes de luz nos cantos superiores mais uma grade
+   * fina. `fixed` para que ela não role junto e o fundo pareça profundidade, e
+   * não papel de parede.
+   */
+  background-color: var(--color-fundo);
+  background-image:
+    radial-gradient(
+      ellipse 80% 55% at 15% -10%,
+      color-mix(in oklch, var(--color-mat) 14%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 90% -5%,
+      color-mix(in oklch, var(--color-fis) 12%, transparent),
+      transparent
+    ),
+    linear-gradient(var(--color-borda) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-borda) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    56px 56px,
+    56px 56px;
+  background-attachment: fixed;
 }
 
-/* Tabular por padrão nos dígitos: sem isso a fita de pi "pula" a cada tecla,
-   porque a largura do 1 é menor que a dos outros algarismos. */
+/* A grade de fundo é estrutura, não conteúdo: fica quase invisível. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: var(--color-fundo);
+  opacity: 0.88;
+  z-index: -1;
+}
+
+/* Sem isso a fita de pi "pula" a cada tecla: a largura do 1 é menor. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+.fonte-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Entrada escalonada de listas. O índice vem por style inline. */
+.escalonar > * {
+  animation: surgir 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .escalonar > * {
+    animation: none;
+  }
+}
+
+/* Foco visível e consistente, sem o anel padrão do navegador. */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--color-acento-fundo);
+  color: var(--color-texto);
 }

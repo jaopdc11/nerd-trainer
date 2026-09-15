@@ -29,6 +29,11 @@ export interface AnswerInputProps {
   readonly onCaractere?: (c: string) => Veredito
   /** Chamado no Enter no modo 'linha'. */
   readonly onEnviar?: (texto: string) => Veredito
+  /**
+   * Se devolve `true` para o que já foi digitado, a resposta é enviada sem
+   * esperar o Enter. Quem decide é a engine, que sabe o que ainda está em jogo.
+   */
+  readonly autoCommit?: (texto: string) => boolean
   /** Espelha a digitação parcial para a engine (fita, prefixo, dica). */
   readonly onMudar?: (texto: string) => void
   readonly bloqueado?: boolean
@@ -41,9 +46,9 @@ export interface AnswerInputProps {
 const DURACAO_FLASH_MS = 400
 
 const ANEL: Record<Veredito, string> = {
-  certo: 'ring-acento bg-acento-fundo',
-  quase: 'ring-quase bg-quase-fundo',
-  errado: 'ring-erro bg-erro-fundo motion-safe:animate-tremer',
+  certo: 'border-acento bg-acento-fundo/40 motion-safe:animate-brilho',
+  quase: 'border-quase bg-quase-fundo/40',
+  errado: 'border-erro bg-erro-fundo/40 motion-safe:animate-tremer',
 }
 
 export function AnswerInput({
@@ -52,6 +57,7 @@ export function AnswerInput({
   onCaractere,
   onEnviar,
   onMudar,
+  autoCommit,
   bloqueado = false,
   placeholder,
   rotuloAria,
@@ -88,6 +94,15 @@ export function AnswerInput({
     const valor = e.target.value
 
     if (modo === 'linha') {
+      // Resposta já inequívoca: envia sem esperar o Enter. É o que dá fluidez à
+      // tabela periódica e ao cálculo cronometrado.
+      if (autoCommit?.(valor.trim())) {
+        const veredito = onEnviar?.(valor.trim())
+        if (veredito) piscar(veredito)
+        setTexto('')
+        onMudar?.('')
+        return
+      }
       setTexto(valor)
       onMudar?.(valor)
       return
@@ -127,10 +142,19 @@ export function AnswerInput({
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-xl border border-borda bg-superficie px-4 py-3 ring-2 ring-transparent transition-colors ${
-        flash ? ANEL[flash] : ''
+      className={`relative flex items-center gap-3 rounded-2xl border-2 border-borda bg-superficie/80 px-4 py-3.5 backdrop-blur-sm transition-colors duration-200 ${
+        flash ? ANEL[flash] : 'focus-within:border-borda-forte'
       }`}
     >
+      {/* Cursor de prompt: dá o ar de terminal e mostra onde o texto entra. */}
+      <span
+        aria-hidden
+        className={`font-mono text-xl transition-colors ${
+          flash === 'errado' ? 'text-erro' : 'text-acento'
+        }`}
+      >
+        ›
+      </span>
       <input
         ref={refInput}
         type="text"
@@ -145,7 +169,7 @@ export function AnswerInput({
         pattern={teclado === 'numerico' ? '[0-9]*' : undefined}
         enterKeyHint={modo === 'linha' ? 'send' : 'done'}
         {...comumMobile}
-        className="w-full bg-transparent font-mono text-2xl tabular text-texto outline-none placeholder:text-tenue disabled:opacity-40"
+        className="w-full bg-transparent font-mono text-2xl tabular text-texto outline-none placeholder:text-tenue/70 disabled:opacity-40"
       />
     </div>
   )

@@ -27,13 +27,6 @@ export interface Unidade {
   readonly plural: string
 }
 
-/** Variantes do mesmo jogo. Cada modo tem recorde próprio. */
-export interface ModoJogo {
-  readonly id: string
-  readonly nome: string
-  readonly resumo?: string
-}
-
 interface JogoBase {
   /** kebab-case. É o slug da rota E a chave do storage: nunca mude depois de publicado. */
   readonly id: string
@@ -44,22 +37,20 @@ interface JogoBase {
   readonly icone: string
   readonly unidade: Unidade
   readonly comoJogar: readonly string[]
-  readonly modos?: readonly ModoJogo[]
 }
 
 /**
  * Um jogo declarado ao registry.
  *
- * `config` é função e não objeto porque os modos trocam o config inteiro: na
- * tabela periódica, "digitar o nome" e "dado o Z, qual o elemento" mudam qual
- * campo é resposta e se a ordem é livre ou sorteada. Jogo de modo único ignora
- * o argumento e faz `config: () => ({ ... })`.
+ * `config` é função e não objeto porque alguns jogos montam o baralho ou a lista
+ * de células na hora, e fazer isso no topo do módulo custaria na carga do menu —
+ * o registry importa todos os jogos.
  */
 export type JogoModule =
-  | (JogoBase & { readonly mecanica: 'sequencia'; config(modoId?: string): ConfigSequencia })
-  | (JogoBase & { readonly mecanica: 'grade'; config(modoId?: string): ConfigGrade })
-  | (JogoBase & { readonly mecanica: 'flashcard'; config(modoId?: string): ConfigFlashcard })
-  | (JogoBase & { readonly mecanica: 'gerador'; config(modoId?: string): ConfigGerador })
+  | (JogoBase & { readonly mecanica: 'sequencia'; config(): ConfigSequencia })
+  | (JogoBase & { readonly mecanica: 'grade'; config(): ConfigGrade })
+  | (JogoBase & { readonly mecanica: 'flashcard'; config(): ConfigFlashcard })
+  | (JogoBase & { readonly mecanica: 'gerador'; config(): ConfigGerador })
 
 export type JogoSequencia = Extract<JogoModule, { mecanica: 'sequencia' }>
 export type JogoGrade = Extract<JogoModule, { mecanica: 'grade' }>

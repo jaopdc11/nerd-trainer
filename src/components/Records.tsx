@@ -3,8 +3,9 @@ import { duracao, quando } from '@/core/format'
 import { JOGOS } from '@/core/registry'
 import { href } from '@/core/route'
 import type { Entrada, Partida } from '@/core/storage'
-import type { JogoModule, ModoJogo } from '@/core/types'
+import type { JogoModule } from '@/core/types'
 import { useRecordes } from '@/core/useRecords'
+import { Botao, CORES_CATEGORIA, Etiqueta, Painel } from './ui'
 
 /**
  * Tela de recordes: uma linha por jogo (ou por modo), com a evolução.
@@ -16,42 +17,39 @@ export function Records() {
   const { banco, recordeDe, limparTudo } = useRecordes()
   const temAlgo = Object.keys(banco.entradas).length > 0
 
-  // Uma linha por modo, porque cada modo tem recorde próprio. O tipo é
-  // explícito: o `flatMap` sobre dois formatos diferentes infere mal sozinho.
-  interface Linha {
-    jogo: JogoModule
-    modo?: ModoJogo
-    entrada: Entrada | null
-  }
-
-  // A anotação preserva o refinamento do `filter`: com `Linha[]` o TypeScript
-  // esqueceria que `entrada` já não pode ser nula.
-  const linhas: (Linha & { entrada: Entrada })[] = JOGOS.flatMap((jogo): Linha[] =>
-    jogo.modos
-      ? jogo.modos.map((modo) => ({ jogo, modo, entrada: recordeDe(jogo.id, modo.id) }))
-      : [{ jogo, entrada: recordeDe(jogo.id) }],
-  ).filter((l): l is Linha & { entrada: Entrada } => l.entrada !== null)
+  const linhas = JOGOS.map((jogo) => ({ jogo, entrada: recordeDe(jogo.id) })).filter(
+    (l): l is { jogo: JogoModule; entrada: Entrada } => l.entrada !== null,
+  )
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-center justify-between gap-3">
-        <a href={href({ nome: 'menu' })} className="text-sm text-suave hover:text-texto">
-          ← jogos
+      <header className="flex items-center justify-between gap-3 pt-4">
+        <a
+          href={href({ nome: 'menu' })}
+          className="flex items-center gap-1.5 text-sm text-tenue transition-colors hover:text-texto"
+        >
+          <span aria-hidden>←</span> jogos
         </a>
-        <h1 className="font-semibold">Recordes</h1>
-        <span className="w-12" />
+        <h1 className="fonte-display text-xl font-bold">Recordes</h1>
+        <span className="w-14" />
       </header>
 
       {!temAlgo || linhas.length === 0 ? (
-        <p className="text-suave">
-          Nenhuma partida ainda. Jogue qualquer coisa e o histórico começa a aparecer aqui.
-        </p>
+        <Painel className="flex flex-col items-center gap-3 p-10 text-center">
+          <span aria-hidden className="font-mono text-4xl text-tenue">
+            ∅
+          </span>
+          <p className="text-suave">Nenhuma partida ainda.</p>
+          <p className="text-sm text-tenue">
+            Jogue qualquer coisa e o histórico começa a aparecer aqui.
+          </p>
+        </Painel>
       ) : (
         <>
-          <ul className="flex flex-col gap-3">
-            {linhas.map(({ jogo, modo, entrada }) => (
-              <li key={`${jogo.id}-${modo?.id ?? ''}`}>
-                <LinhaRecorde jogo={jogo} modo={modo} entrada={entrada} />
+          <ul className="escalonar flex flex-col gap-3">
+            {linhas.map(({ jogo, entrada }, i) => (
+              <li key={jogo.id} style={{ '--i': i } as React.CSSProperties}>
+                <LinhaRecorde jogo={jogo} entrada={entrada} />
               </li>
             ))}
           </ul>
@@ -63,15 +61,7 @@ export function Records() {
   )
 }
 
-function LinhaRecorde({
-  jogo,
-  modo,
-  entrada,
-}: {
-  jogo: JogoModule
-  modo: ModoJogo | undefined
-  entrada: Entrada
-}) {
+function LinhaRecorde({ jogo, entrada }: { jogo: JogoModule; entrada: Entrada }) {
   const [aberta, setAberta] = useState(false)
   const historico = entrada.historico
 
@@ -80,32 +70,40 @@ function LinhaRecorde({
       ? historico.reduce((s, p) => s + p.pontuacao, 0) / historico.length
       : entrada.recorde.pontuacao
 
+  const cor = CORES_CATEGORIA[jogo.categoria]
+
   return (
-    <div className="rounded-xl border border-borda bg-superficie">
+    <Painel className="overflow-hidden transition-colors hover:border-borda-forte">
       <button
         type="button"
         onClick={() => setAberta((v) => !v)}
         aria-expanded={aberta}
         className="flex w-full items-center gap-3 p-4 text-left"
       >
-        <span aria-hidden className="font-mono text-xl text-acento">
+        <span
+          aria-hidden
+          className={`grid size-10 shrink-0 place-items-center rounded-xl font-mono text-base font-bold ${cor.fundo} ${cor.texto}`}
+        >
           {jogo.icone}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">
-            {jogo.nome}
-            {modo && <span className="font-normal text-suave"> · {modo.nome}</span>}
-          </span>
+          <span className="block truncate font-semibold">{jogo.nome}</span>
           <span className="block text-sm text-tenue">
             {entrada.partidas} partida{entrada.partidas > 1 ? 's' : ''} ·{' '}
             {quando(entrada.ultimaEmISO)}
           </span>
         </span>
         <span className="shrink-0 text-right">
-          <span className="block font-mono text-xl tabular font-bold">
+          <span className="block font-mono text-2xl tabular font-bold text-acento">
             {entrada.recorde.pontuacao}
           </span>
           <span className="block text-xs text-tenue">{jogo.unidade.plural}</span>
+        </span>
+        <span
+          aria-hidden
+          className={`text-tenue transition-transform duration-200 ${aberta ? 'rotate-180' : ''}`}
+        >
+          ⌄
         </span>
       </button>
 
@@ -125,26 +123,28 @@ function LinhaRecorde({
             </p>
           )}
 
-          <p className="text-xs text-tenue">
-            recorde feito {quando(entrada.recorde.emISO)}
-            {entrada.recorde.completou && ' · completou tudo'}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Etiqueta className="text-tenue">recorde {quando(entrada.recorde.emISO)}</Etiqueta>
+            {entrada.recorde.completou && (
+              <Etiqueta className="border-acento/40 text-acento">completou tudo</Etiqueta>
+            )}
+          </div>
 
           <a
-            href={href({ nome: 'jogo', jogoId: jogo.id, ...(modo ? { modoId: modo.id } : {}) })}
-            className="self-start rounded-lg bg-acento px-4 py-2 text-sm font-semibold text-fundo"
+            href={href({ nome: 'jogo', jogoId: jogo.id })}
+            className="self-start rounded-xl bg-acento px-5 py-2.5 text-sm font-semibold text-fundo shadow-[0_0_24px_-6px_var(--color-acento)] transition-all hover:bg-acento-forte motion-safe:active:scale-[0.97]"
           >
             Jogar
           </a>
         </div>
       )}
-    </div>
+    </Painel>
   )
 }
 
 function Estatistica({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
-    <div className="rounded-lg bg-superficie-alta px-2 py-3">
+    <div className="rounded-xl border border-borda/60 bg-fundo-alt px-2 py-3">
       <dt className="text-xs text-tenue">{rotulo}</dt>
       <dd className="font-mono text-lg tabular font-semibold">{valor}</dd>
     </div>
@@ -216,16 +216,16 @@ function Ferramentas({ onLimpar }: { onLimpar: () => void }) {
       {confirmando ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-erro">Apagar todos os recordes? Não dá para desfazer.</p>
-          <button
-            type="button"
+          <Botao
+            tamanho="md"
             onClick={() => {
               onLimpar()
               setConfirmando(false)
             }}
-            className="rounded-lg bg-erro px-4 py-2 text-sm font-semibold text-fundo"
+            className="bg-erro text-fundo shadow-none hover:bg-erro"
           >
             Apagar
-          </button>
+          </Botao>
           <button
             type="button"
             onClick={() => setConfirmando(false)}

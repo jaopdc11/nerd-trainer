@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { normalizarTexto, validar } from '@/core/answer'
+import { completaSemAmbiguidade, formasDeAutoCommit, normalizarTexto, validar } from '@/core/answer'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
 import type { CelulaGrade, ConfigGrade, ResultadoRun } from '@/core/types'
@@ -32,6 +32,8 @@ export interface SessaoGrade {
   readonly faltaram: readonly CelulaGrade[]
   iniciar(): void
   responder(texto: string): Veredito
+  /** O que foi digitado já é resposta inequívoca de alguma célula vazia? */
+  podeAutoCommitar(texto: string): boolean
   encerrar(): void
 }
 
@@ -161,6 +163,39 @@ export function useGrid(
     ],
   )
 
+  /**
+   * O universo do auto-commit são só as células **ainda vazias**: conforme a
+   * grade enche, formas que eram ambíguas passam a ser únicas e o jogo vai
+   * ficando mais fluido sozinho.
+   */
+  const universoAberto = useMemo(() => {
+    const abertas =
+      config.ordem === 'sorteada'
+        ? [porId.get(alvoId ?? '')].filter((c): c is CelulaGrade => c !== undefined)
+        : config.celulas.filter((c) => !preenchidas.has(c.id))
+
+    const formas: string[] = []
+    for (const c of abertas) {
+      const auto = formasDeAutoCommit(c.resposta)
+      if (auto) formas.push(...auto.formas)
+    }
+    return formas
+  }, [config.ordem, config.celulas, porId, alvoId, preenchidas])
+
+  const podeAutoCommitar = useCallback(
+    (texto: string): boolean => {
+      if (estado !== 'jogando') return false
+      const primeira = config.celulas[0]
+      if (!primeira) return false
+
+      const auto = formasDeAutoCommit(primeira.resposta)
+      if (!auto) return false
+
+      return completaSemAmbiguidade(auto.normalizar(texto), universoAberto)
+    },
+    [estado, config.celulas, universoAberto],
+  )
+
   const encerrar = useCallback(() => {
     if (estado === 'jogando') finalizar(preenchidas.size, erros)
   }, [estado, preenchidas.size, erros, finalizar])
@@ -182,6 +217,7 @@ export function useGrid(
     faltaram,
     iniciar,
     responder,
+    podeAutoCommitar,
     encerrar,
   }
 }

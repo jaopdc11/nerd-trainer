@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { comUnidade, duracao } from '@/core/format'
 import type { CelulaGrade, ConfigGrade, JogoGrade, ResultadoRun } from '@/core/types'
 import { useGrid } from './useGrid'
@@ -12,39 +13,56 @@ interface Props {
   readonly recorde: number | null
 }
 
+/**
+ * Teto de altura de uma célula. A largura vem do container (1fr), então a grade
+ * nunca passa do espaço disponível e não há rolagem horizontal; este valor só
+ * impede que, numa tela larga e baixa, as 10 linhas estourem a altura da janela.
+ */
+const TETO_LINHA = '4.6vh'
+
 /** Cor por bloco da tabela. Nunca é a única informação: o texto também muda. */
-const COR_GRUPO: Record<string, string> = {
-  s: 'bg-[oklch(0.35_0.09_25)] text-[oklch(0.93_0.05_25)]',
-  p: 'bg-[oklch(0.35_0.08_230)] text-[oklch(0.93_0.05_230)]',
-  d: 'bg-[oklch(0.35_0.07_150)] text-[oklch(0.93_0.05_150)]',
-  f: 'bg-[oklch(0.35_0.08_300)] text-[oklch(0.93_0.05_300)]',
+const COR_BLOCO: Record<string, string> = {
+  s: 'bg-[oklch(0.36_0.1_25)] text-[oklch(0.94_0.06_25)] border-[oklch(0.48_0.12_25)]',
+  p: 'bg-[oklch(0.36_0.09_235)] text-[oklch(0.94_0.06_235)] border-[oklch(0.48_0.11_235)]',
+  d: 'bg-[oklch(0.36_0.08_160)] text-[oklch(0.94_0.06_160)] border-[oklch(0.48_0.1_160)]',
+  f: 'bg-[oklch(0.36_0.09_300)] text-[oklch(0.94_0.06_300)] border-[oklch(0.48_0.11_300)]',
 }
 
 export function GridEngine({ jogo, config, onFinalizar, recorde }: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useGrid(config, onFinalizar)
+  const total = sessao.acertos + sessao.restantes
+  const superou = recorde !== null && sessao.acertos > recorde
 
   return (
     <div ref={area} className="flex flex-col gap-4">
-      <Cabecalho sessao={sessao} jogo={jogo} recorde={recorde} />
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-end justify-between gap-4">
+          <Placar valor={sessao.acertos} total={total} destacado={superou} />
+          {recorde !== null ? (
+            <Etiqueta className={superou ? 'mb-1 border-acento text-acento' : 'mb-1 text-tenue'}>
+              {superou ? 'recorde batido' : `recorde ${recorde}`}
+            </Etiqueta>
+          ) : (
+            <span className="pb-1 text-sm text-tenue">sem recorde ainda</span>
+          )}
+        </div>
+        <Barra fracao={sessao.acertos / total} />
+      </div>
 
       <Grade sessao={sessao} config={config} />
 
       {sessao.estado === 'pronto' && (
-        <button
-          type="button"
-          onClick={sessao.iniciar}
-          className="self-start rounded-lg bg-acento px-6 py-3 text-lg font-semibold text-fundo transition-opacity hover:opacity-90"
-        >
+        <Botao onClick={sessao.iniciar} className="self-start">
           Começar
-        </button>
+        </Botao>
       )}
 
       {sessao.estado === 'jogando' && (
-        <div className="sticky bottom-0 flex flex-col gap-2 bg-fundo pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="sticky bottom-0 flex flex-col gap-2 bg-fundo/90 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur">
           {sessao.alvo && (
             <p className="text-center text-suave">
-              Qual é o elemento de número atômico{' '}
+              Número atômico{' '}
               <strong className="font-mono text-xl text-acento">{sessao.alvo.rotulo}</strong>?
             </p>
           )}
@@ -52,14 +70,15 @@ export function GridEngine({ jogo, config, onFinalizar, recorde }: Props) {
             modo="linha"
             teclado={config.teclado}
             onEnviar={sessao.responder}
-            placeholder={config.ordem === 'livre' ? 'digite o que lembrar' : 'resposta e Enter'}
+            autoCommit={sessao.podeAutoCommitar}
+            placeholder="digite o que lembrar"
             rotuloAria="Resposta"
             ancora={area}
           />
           <button
             type="button"
             onClick={sessao.encerrar}
-            className="self-center text-sm text-tenue transition-colors hover:text-suave"
+            className="self-center text-xs text-tenue transition-colors hover:text-suave"
           >
             desistir e ver o gabarito
           </button>
@@ -71,40 +90,11 @@ export function GridEngine({ jogo, config, onFinalizar, recorde }: Props) {
   )
 }
 
-function Cabecalho({
-  sessao,
-  jogo,
-  recorde,
-}: {
-  sessao: SessaoGrade
-  jogo: JogoGrade
-  recorde: number | null
-}) {
-  const superou = recorde !== null && sessao.acertos > recorde
-
-  return (
-    <div className="flex items-baseline justify-between gap-4">
-      <p className="font-mono text-4xl tabular font-bold">
-        {sessao.acertos}
-        <span className="text-xl text-tenue">/{sessao.restantes + sessao.acertos}</span>
-      </p>
-      <p className={`text-sm ${superou ? 'text-acento' : 'text-tenue'}`}>
-        {superou
-          ? 'recorde batido!'
-          : recorde !== null
-            ? `recorde: ${comUnidade(recorde, jogo.unidade)}`
-            : 'sem recorde ainda'}
-      </p>
-    </div>
-  )
-}
-
 /**
  * A grade só exibe — ninguém digita dentro da célula.
  *
- * Essa decisão resolve de uma vez o problema de 18 colunas num celular de
- * 360px: a célula pode ser um quadrado de 2rem, porque é visor, e toda a
- * digitação acontece na barra fixa do rodapé.
+ * É o que permite a célula ser pequena: ela é visor, e toda a digitação
+ * acontece na barra fixa do rodapé.
  */
 function Grade({ sessao, config }: { sessao: SessaoGrade; config: ConfigGrade }) {
   const refUltima = useRef<HTMLLIElement>(null)
@@ -116,13 +106,19 @@ function Grade({ sessao, config }: { sessao: SessaoGrade; config: ConfigGrade })
   }, [sessao.ultima])
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
+    // No desktop a grade cabe inteira e não há rolagem. No celular, 18 colunas
+    // sem rolagem deixariam a fonte ilegível, então ali ela volta — é o único
+    // lugar onde vale a troca.
+    <div className="max-sm:-mx-4 max-sm:overflow-x-auto max-sm:px-4">
       <ul
-        className="grid gap-[3px]"
+        className="mx-auto grid gap-[clamp(1px,0.2vw,4px)] max-sm:min-w-[34rem]"
         style={{
-          gridTemplateColumns: `repeat(${config.colunas}, minmax(2rem, 1fr))`,
-          gridTemplateRows: `repeat(${config.linhas}, auto)`,
-          minWidth: `${config.colunas * 2.25}rem`,
+          // `minmax(0, 1fr)` é o que elimina a rolagem: a célula nunca pede mais
+          // largura do que o container tem. O `maxWidth` limita o outro eixo —
+          // 18 colunas de células quadradas altas demais estourariam a altura da
+          // tela, e foi isso que criou a barra de rolagem antes.
+          gridTemplateColumns: `repeat(${config.colunas}, minmax(0, 1fr))`,
+          maxWidth: `calc(${config.colunas} * ${TETO_LINHA})`,
         }}
       >
         {config.celulas.map((celula) => (
@@ -160,29 +156,30 @@ function Celula({
   ref?: React.Ref<HTMLLIElement>
 }) {
   const preenchida = valor !== undefined
-  const cor = COR_GRUPO[celula.grupo ?? ''] ?? 'bg-superficie-alta text-texto'
 
   const classe = preenchida
-    ? cor
+    ? (COR_BLOCO[celula.grupo ?? ''] ?? 'border-borda-forte bg-superficie-alta text-texto')
     : revelar
-      ? 'bg-erro-fundo text-erro'
+      ? 'border-erro/40 bg-erro-fundo/50 text-erro'
       : alvo
-        ? 'bg-acento-fundo ring-2 ring-acento'
-        : 'bg-superficie text-tenue'
+        ? 'border-acento bg-acento-fundo'
+        : 'border-borda/60 bg-superficie/40 text-tenue'
 
   return (
     <li
       ref={ref}
-      style={{ gridColumn: celula.coluna, gridRow: celula.linha }}
-      className={`flex aspect-square flex-col items-center justify-center overflow-hidden rounded border border-borda text-center ${classe} ${
-        recemAcertada ? 'motion-safe:animate-surgir' : ''
+      // `inline-size` liga as unidades cqw: assim o texto escala com a célula,
+      // e não com a viewport.
+      style={{ gridColumn: celula.coluna, gridRow: celula.linha, containerType: 'inline-size' }}
+      className={`flex aspect-square flex-col items-center justify-center overflow-hidden rounded-md border text-center transition-colors duration-200 ${classe} ${
+        recemAcertada ? 'motion-safe:animate-brilho' : ''
       }`}
       title={preenchida || revelar ? celula.gabarito : undefined}
     >
       {mostrarRotulo && celula.rotulo && (
-        <span className="text-[0.5rem] leading-none opacity-70">{celula.rotulo}</span>
+        <span className="text-[min(0.6rem,18cqw)] leading-none opacity-60">{celula.rotulo}</span>
       )}
-      <span className="font-mono text-[0.7rem] leading-tight font-semibold">
+      <span className="font-mono text-[min(1rem,30cqw)] leading-tight font-bold">
         {preenchida ? valor : revelar ? celula.gabarito : ''}
       </span>
     </li>
@@ -203,32 +200,33 @@ function Fim({
   const bateu = recorde === null || sessao.acertos > recorde
 
   return (
-    <section className="motion-safe:animate-surgir flex flex-col items-start gap-4 rounded-xl border border-borda bg-superficie p-5">
-      <h2 className="text-2xl font-bold">
-        {completou ? 'Tabela inteira!' : bateu ? 'Recorde novo' : 'Fim da partida'}
+    <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-5">
+      <h2 className="fonte-display text-2xl font-bold">
+        {completou ? (
+          <span className="text-acento">Tabela inteira!</span>
+        ) : bateu ? (
+          <span className="text-acento">Recorde novo</span>
+        ) : (
+          'Fim da partida'
+        )}
       </h2>
-      <p className="text-suave">
+
+      <p className="font-mono text-sm text-tenue">
         {comUnidade(sessao.acertos, jogo.unidade)} de {total} · {duracao(sessao.duracaoMs)}
       </p>
 
       {sessao.faltaram.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm text-suave">
+        <div className="flex w-full flex-col gap-2">
+          <p className="text-sm text-suave">
             Faltaram {sessao.faltaram.length} — em vermelho na grade acima:
           </p>
-          <p className="font-mono text-sm leading-relaxed text-erro">
+          <p className="max-h-32 overflow-y-auto rounded-xl border border-erro/25 bg-erro-fundo/20 p-3 font-mono text-sm leading-relaxed text-erro">
             {sessao.faltaram.map((c) => c.gabarito).join(' · ')}
           </p>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={sessao.iniciar}
-        className="rounded-lg bg-acento px-6 py-3 font-semibold text-fundo transition-opacity hover:opacity-90"
-      >
-        De novo
-      </button>
-    </section>
+      <Botao onClick={sessao.iniciar}>De novo</Botao>
+    </Painel>
   )
 }

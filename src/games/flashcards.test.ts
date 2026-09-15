@@ -9,8 +9,8 @@ import { alfabetoGrego, constantesFisicas, prefixosSI } from './flashcards'
 
 const ESTRITO = { rigor: 'estrito' } as const
 
-function baralho(jogo: JogoFlashcard, modoId?: string): readonly Carta[] {
-  return jogo.config(modoId).montarBaralho(mulberry32(7))
+function baralho(jogo: JogoFlashcard): readonly Carta[] {
+  return jogo.config().montarBaralho(mulberry32(7))
 }
 
 /** Todas as formas que uma carta aceita, normalizadas conforme o tipo dela. */
@@ -39,8 +39,8 @@ function formasAceitas(carta: Carta): string[] {
  * carta caiu. É exatamente o risco do grego, onde "csi"/"xi" e "qui"/"chi"
  * convivem, e da tabela periódica, onde "Índio" e "Irídio" quase colidem.
  */
-function semColisao(jogo: JogoFlashcard, modoId?: string) {
-  const cartas = baralho(jogo, modoId)
+function semColisao(jogo: JogoFlashcard) {
+  const cartas = baralho(jogo)
   const dono = new Map<string, string>()
 
   for (const carta of cartas) {
@@ -65,8 +65,8 @@ describe('alfabeto grego', () => {
     )
   })
 
-  it('nenhuma forma aceita é compartilhada entre letras, em nenhum modo', () => {
-    for (const modo of ['nome', 'minuscula', 'maiuscula']) semColisao(alfabetoGrego, modo)
+  it('nenhuma forma aceita é compartilhada entre letras', () => {
+    semColisao(alfabetoGrego)
   })
 
   it('não confunde csi com qui — o par mais perigoso do dataset', () => {
@@ -78,22 +78,6 @@ describe('alfabeto grego', () => {
     expect(cruzamento).toEqual([])
   })
 
-  it('aceita as variantes do glifo só onde elas existem', () => {
-    const cartas = baralho(alfabetoGrego, 'minuscula')
-    const fi = cartas.find((c) => c.id.endsWith('-21'))
-    if (fi?.tipo !== 'digitada') throw new Error('carta de fi não encontrada')
-    // ϕ e φ são a mesma letra, desenhada de dois jeitos.
-    expect(validar('ϕ', fi.resposta, ESTRITO).veredito).toBe('certo')
-    expect(validar('φ', fi.resposta, ESTRITO).veredito).toBe('certo')
-  })
-
-  it('exige a caixa certa no modo símbolo', () => {
-    const cartas = baralho(alfabetoGrego, 'minuscula')
-    const sigma = cartas.find((c) => c.id.endsWith('-18'))
-    if (sigma?.tipo !== 'digitada') throw new Error('carta de sigma não encontrada')
-    expect(validar('σ', sigma.resposta, ESTRITO).veredito).toBe('certo')
-    expect(validar('Σ', sigma.resposta, ESTRITO).veredito).toBe('errado')
-  })
 })
 
 describe('prefixos SI', () => {
@@ -113,28 +97,10 @@ describe('prefixos SI', () => {
     }
   })
 
-  it('nenhuma forma aceita é compartilhada, em nenhum modo', () => {
-    for (const modo of ['expoente', 'simbolo', 'nome']) semColisao(prefixosSI, modo)
+  it('nenhuma forma aceita é compartilhada entre prefixos', () => {
+    semColisao(prefixosSI)
   })
 
-  it('separa quilo de kelvin pela caixa do símbolo', () => {
-    const cartas = baralho(prefixosSI, 'simbolo')
-    const quilo = cartas.find((c) => c.id === 'si-simbolo-quilo')
-    if (quilo?.tipo !== 'digitada') throw new Error('carta de quilo não encontrada')
-    expect(validar('k', quilo.resposta, ESTRITO).veredito).toBe('certo')
-    expect(validar('K', quilo.resposta, ESTRITO).veredito).toBe('errado')
-  })
-
-  it('aceita o micro sign e o mu grego como a mesma coisa', () => {
-    const cartas = baralho(prefixosSI, 'simbolo')
-    const micro = cartas.find((c) => c.id === 'si-simbolo-micro')
-    if (micro?.tipo !== 'digitada') throw new Error('carta de micro não encontrada')
-    // µ (U+00B5) e μ (U+03BC) renderizam igual e são codepoints diferentes.
-    expect('µ'.codePointAt(0)).not.toBe('μ'.codePointAt(0))
-    for (const forma of ['μ', 'µ', 'u']) {
-      expect(validar(forma, micro.resposta, ESTRITO).veredito, forma).toBe('certo')
-    }
-  })
 })
 
 describe('constantes físicas', () => {
@@ -179,5 +145,14 @@ describe('constantes físicas', () => {
 
   it('nenhuma constante aceita o valor de outra', () => {
     semColisao(constantesFisicas)
+  })
+
+  it('aceita as duas grafias de nome que o dataset declara', () => {
+    const cartas = baralho(alfabetoGrego)
+    const mi = cartas.find((c) => c.id === 'grego-nome-12')
+    if (mi?.tipo !== 'digitada') throw new Error('carta de mi não encontrada')
+    for (const forma of ['mi', 'mu', 'MU']) {
+      expect(validar(forma, mi.resposta, ESTRITO).veredito, forma).toBe('certo')
+    }
   })
 })

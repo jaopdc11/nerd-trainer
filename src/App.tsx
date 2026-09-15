@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import { GameShell } from '@/components/GameShell'
 import { Menu } from '@/components/Menu'
-import { ModeSelect } from '@/components/ModeSelect'
 import { Records } from '@/components/Records'
 import { FlashcardEngine } from '@/engines/flashcard/FlashcardEngine'
 import { GeneratorEngine } from '@/engines/generator/GeneratorEngine'
@@ -15,8 +14,17 @@ import { useRecordes } from '@/core/useRecords'
 export function App() {
   const rota = useRota()
 
+  // A tabela periódica tem 18 colunas: espremê-la em `max-w-2xl` era o que
+  // deixava as células ilegíveis. As outras telas são de leitura e continuam
+  // estreitas, que é onde texto se lê melhor.
+  const largo = rota.nome === 'jogo' && buscarJogo(rota.jogoId)?.mecanica === 'grade'
+
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 py-6 sm:py-10">
+    <div
+      className={`mx-auto min-h-dvh w-full px-4 ${
+        largo ? 'max-w-[68rem] py-4' : 'max-w-2xl py-6 sm:py-10'
+      }`}
+    >
       {rota.nome === 'jogo' ? (
         <Jogo jogoId={rota.jogoId} modoId={rota.modoId} />
       ) : rota.nome === 'recordes' ? (
@@ -49,23 +57,17 @@ function Jogo({ jogoId, modoId }: { jogoId: string; modoId?: string }) {
 
   return (
     <GameShell jogo={jogo}>
-      {jogo.modos && !modoId ? (
-        <ModeSelect jogo={jogo} />
-      ) : (
-        <Mecanica jogo={jogo} modoId={modoId} onFinalizar={aoFinalizar} recorde={recorde} />
-      )}
+      <Mecanica jogo={jogo} onFinalizar={aoFinalizar} recorde={recorde} />
     </GameShell>
   )
 }
 
 function Mecanica({
   jogo,
-  modoId,
   onFinalizar,
   recorde,
 }: {
   jogo: JogoModule
-  modoId?: string
   onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   recorde: number | null
 }) {
@@ -74,7 +76,7 @@ function Mecanica({
       return (
         <SequenceEngine
           jogo={jogo}
-          config={jogo.config(modoId)}
+          config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
         />
@@ -83,7 +85,7 @@ function Mecanica({
       return (
         <GeneratorEngine
           jogo={jogo}
-          config={jogo.config(modoId)}
+          config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
         />
@@ -92,7 +94,7 @@ function Mecanica({
       return (
         <FlashcardEngine
           jogo={jogo}
-          config={jogo.config(modoId)}
+          config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
         />
@@ -101,7 +103,7 @@ function Mecanica({
       return (
         <GridEngine
           jogo={jogo}
-          config={jogo.config(modoId)}
+          config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
         />

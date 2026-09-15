@@ -2,60 +2,12 @@ import { COLUNAS_GRADE, ELEMENTOS, LINHAS_GRADE } from '@/data/tabela-periodica'
 import type { CelulaGrade, JogoGrade } from '@/core/types'
 
 /**
- * Os três modos da tabela periódica.
+ * A tabela periódica preenchida pelo nome dos elementos, em ordem livre.
  *
- * O detalhe que separa os modos não é a pergunta, é o **tipo da resposta**:
- * - nome → `texto`, indiferente a acento e caixa ("nitrogenio" vale)
- * - símbolo → `simbolo`, comparação estrita, porque Co é cobalto e CO é
- *   monóxido de carbono; Hf é háfnio e HF é fluoreto de hidrogênio
- * - número atômico → a grade sorteia a célula e pergunta pelo Z
+ * A resposta é `texto`: acento e caixa não importam, "nitrogenio" vale tanto
+ * quanto "Nitrogênio". Os nomes em latim de onde vêm os símbolos estranhos
+ * (Natrium, Kalium, Ferrum...) entram como sinônimos.
  */
-
-function celulaNome(): CelulaGrade[] {
-  return ELEMENTOS.map((e) => ({
-    id: `z${e.z}`,
-    linha: e.linha,
-    coluna: e.coluna,
-    rotulo: String(e.z),
-    grupo: e.bloco,
-    gabarito: e.simbolo,
-    resposta: {
-      tipo: 'texto',
-      canonica: e.nome,
-      aceitas: [e.nome, ...e.sinonimos],
-    },
-  }))
-}
-
-function celulaSimbolo(): CelulaGrade[] {
-  return ELEMENTOS.map((e) => ({
-    id: `z${e.z}`,
-    linha: e.linha,
-    coluna: e.coluna,
-    rotulo: String(e.z),
-    grupo: e.bloco,
-    gabarito: e.simbolo,
-    // Estrita em caixa de propósito: ver o comentário no topo.
-    resposta: { tipo: 'simbolo', canonica: e.simbolo },
-  }))
-}
-
-function celulaPorZ(): CelulaGrade[] {
-  return ELEMENTOS.map((e) => ({
-    id: `z${e.z}`,
-    linha: e.linha,
-    coluna: e.coluna,
-    rotulo: String(e.z),
-    grupo: e.bloco,
-    gabarito: `${e.simbolo} · ${e.nome}`,
-    resposta: {
-      tipo: 'texto',
-      canonica: e.nome,
-      aceitas: [e.nome, ...e.sinonimos, e.simbolo],
-    },
-  }))
-}
-
 export const tabelaPeriodica: JogoGrade = {
   id: 'tabela-periodica',
   mecanica: 'grade',
@@ -66,21 +18,29 @@ export const tabelaPeriodica: JogoGrade = {
   unidade: { singular: 'elemento', plural: 'elementos' },
   comoJogar: [
     'Digite os elementos na ordem que quiser: cada acerto cai na célula certa.',
-    'Acento é opcional no nome; no modo símbolo a caixa importa (Co ≠ CO).',
-    'Pode desistir a qualquer momento para ver o gabarito do que faltou.',
+    'Acento e maiúscula não importam — "sodio" vale.',
+    'Assim que o nome estiver completo ele é aceito sozinho, sem Enter.',
   ],
-  modos: [
-    { id: 'nome', nome: 'Pelo nome', resumo: 'Digite "sódio", "ferro", "oganessônio"…' },
-    { id: 'simbolo', nome: 'Pelo símbolo', resumo: 'Digite "Na", "Fe", "Og" — a caixa importa' },
-    { id: 'por-z', nome: 'Pelo número atômico', resumo: 'O jogo sorteia o Z e pergunta qual é' },
-  ],
-  config: (modoId) => ({
+  config: () => ({
     linhas: LINHAS_GRADE,
     colunas: COLUNAS_GRADE,
-    celulas:
-      modoId === 'simbolo' ? celulaSimbolo() : modoId === 'por-z' ? celulaPorZ() : celulaNome(),
+    celulas: ELEMENTOS.map(
+      (e): CelulaGrade => ({
+        id: `z${e.z}`,
+        linha: e.linha,
+        coluna: e.coluna,
+        rotulo: String(e.z),
+        grupo: e.bloco,
+        gabarito: e.simbolo,
+        resposta: {
+          tipo: 'texto',
+          canonica: e.nome,
+          aceitas: [e.nome, ...e.sinonimos],
+        },
+      }),
+    ),
     teclado: 'texto',
-    ordem: modoId === 'por-z' ? 'sorteada' : 'livre',
+    ordem: 'livre',
     mostrarRotulos: true,
   }),
 }

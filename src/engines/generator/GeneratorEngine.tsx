@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { comUnidade, cronometro, duracao, taxa } from '@/core/format'
 import type { ConfigGerador, Conteudo, JogoGerador, ResultadoRun } from '@/core/types'
 import { useGenerator } from './useGenerator'
@@ -18,18 +19,21 @@ export function GeneratorEngine({ jogo, config, onFinalizar, recorde }: Props) {
 
   return (
     <div ref={area} className="flex flex-col gap-5">
-      {sessao.estado === 'pronto' && <Abertura jogo={jogo} config={config} sessao={sessao} />}
+      {sessao.estado === 'pronto' && (
+        <Abertura jogo={jogo} config={config} recorde={recorde} onIniciar={sessao.iniciar} />
+      )}
 
       {sessao.estado === 'jogando' && (
         <>
-          <Barra sessao={sessao} config={config} />
+          <Cronometro sessao={sessao} config={config} recorde={recorde} />
           <Enunciado sessao={sessao} />
           <AnswerInput
             modo="linha"
             teclado={sessao.exercicio?.teclado ?? config.teclado}
             onEnviar={sessao.responder}
+            autoCommit={sessao.podeAutoCommitar}
             bloqueado={sessao.correcao !== null}
-            placeholder="resposta e Enter"
+            placeholder="resposta"
             rotuloAria="Resposta"
             ancora={area}
           />
@@ -44,90 +48,102 @@ export function GeneratorEngine({ jogo, config, onFinalizar, recorde }: Props) {
 function Abertura({
   jogo,
   config,
-  sessao,
+  recorde,
+  onIniciar,
 }: {
   jogo: JogoGerador
   config: ConfigGerador
-  sessao: SessaoGerador
+  recorde: number | null
+  onIniciar: () => void
 }) {
   return (
-    <div className="flex flex-col items-start gap-4 rounded-xl border border-borda bg-superficie p-6">
+    <Painel className="flex flex-col items-start gap-5 p-6">
+      <div className="flex flex-wrap gap-2">
+        <Etiqueta className="text-texto">{config.segundosIniciais}s iniciais</Etiqueta>
+        <Etiqueta className="border-acento/40 text-acento">
+          +{config.bonusPorAcertoS}s por acerto
+        </Etiqueta>
+        <Etiqueta className="text-tenue">teto {config.tetoSegundos}s</Etiqueta>
+      </div>
+
       <p className="text-suave">
-        {config.segundosIniciais} segundos no relógio. Cada acerto devolve{' '}
-        <strong className="text-acento">+{config.bonusPorAcertoS}s</strong>, até o teto de{' '}
-        {config.tetoSegundos}s. Errar não encerra — só custa o tempo que passou.
+        Errar não encerra a partida — só custa o tempo que passou. Ela acaba quando o relógio
+        zera, e o placar é quantos {jogo.unidade.plural} você fez.
       </p>
-      {recordeLinha(jogo, sessao)}
-      <button
-        type="button"
-        onClick={sessao.iniciar}
-        className="rounded-lg bg-acento px-6 py-3 text-lg font-semibold text-fundo transition-opacity hover:opacity-90"
-      >
-        Começar
-      </button>
-    </div>
-  )
-}
 
-function recordeLinha(jogo: JogoGerador, _sessao: SessaoGerador) {
-  return (
-    <p className="text-sm text-tenue">
-      Placar é quantos você acerta antes do relógio zerar — {jogo.unidade.plural}.
-    </p>
-  )
-}
-
-function Barra({ sessao, config }: { sessao: SessaoGerador; config: ConfigGerador }) {
-  const fracao = Math.min(1, sessao.restanteMs / (config.tetoSegundos * 1000))
-  const acabando = sessao.restanteMs < 10_000
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between">
-        <p className="font-mono text-4xl tabular font-bold">
-          {sessao.acertos}
-          <span className="ml-2 text-sm font-normal text-suave">acertos</span>
+      {recorde !== null && (
+        <p className="font-mono text-sm text-tenue">
+          seu recorde: <span className="text-acento">{comUnidade(recorde, jogo.unidade)}</span>
         </p>
+      )}
+
+      <Botao onClick={onIniciar}>Começar</Botao>
+    </Painel>
+  )
+}
+
+function Cronometro({
+  sessao,
+  config,
+  recorde,
+}: {
+  sessao: SessaoGerador
+  config: ConfigGerador
+  recorde: number | null
+}) {
+  const acabando = sessao.restanteMs < 10_000
+  const superou = recorde !== null && sessao.acertos > recorde
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-end justify-between gap-4">
+        <Placar valor={sessao.acertos} sufixo="acertos" destacado={superou} />
         <p
-          className={`font-mono text-3xl tabular font-bold ${
-            acabando ? 'text-erro motion-safe:animate-pulse' : 'text-texto'
+          className={`font-mono text-4xl tabular font-bold transition-colors ${
+            acabando ? 'text-erro motion-safe:animate-respirar' : 'text-texto'
           }`}
         >
           {cronometro(sessao.restanteMs)}
         </p>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-superficie-alta">
-        <div
-          className={`h-full transition-[width] duration-100 ${acabando ? 'bg-erro' : 'bg-acento'}`}
-          style={{ width: `${fracao * 100}%` }}
-        />
+
+      <Barra fracao={sessao.restanteMs / (config.tetoSegundos * 1000)} alerta={acabando} />
+
+      <div className="flex items-center justify-between">
+        <Etiqueta className="text-tenue">nível {sessao.nivel + 1}</Etiqueta>
+        {superou && <span className="text-xs text-acento">recorde batido</span>}
       </div>
-      <p className="text-xs text-tenue">nível {sessao.nivel + 1}</p>
     </div>
   )
 }
 
 function Enunciado({ sessao }: { sessao: SessaoGerador }) {
   return (
-    <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-borda bg-superficie p-6">
-      {sessao.exercicio && <Render conteudo={sessao.exercicio.enunciado} />}
+    <Painel className="flex min-h-36 flex-col items-center justify-center gap-3 p-6">
+      {sessao.exercicio && (
+        // A key troca a cada exercício, o que reinicia a animação de entrada e
+        // deixa claro que veio uma pergunta nova.
+        <div key={sessao.exercicio.chave} className="motion-safe:animate-surgir">
+          <Render conteudo={sessao.exercicio.enunciado} />
+        </div>
+      )}
       {sessao.correcao !== null && (
-        <p className="motion-safe:animate-surgir font-mono text-xl text-erro">
+        <p className="motion-safe:animate-surgir font-mono text-lg text-suave">
           era <strong className="text-acento">{sessao.correcao}</strong>
         </p>
       )}
-    </div>
+    </Painel>
   )
 }
 
 function Render({ conteudo }: { conteudo: Conteudo }) {
   if (conteudo.kind === 'mathml') {
-    // O MathML vem pré-renderizado no build a partir do LaTeX do dataset, nunca
-    // de entrada do jogador — daí ser seguro injetar aqui.
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do próprio bundle
+    // MathML pré-renderizado no build a partir do LaTeX do dataset, nunca de
+    // entrada do jogador — daí ser seguro injetar.
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle
     return <div dangerouslySetInnerHTML={{ __html: conteudo.valor }} className="text-3xl" />
   }
-  return <p className="text-center font-mono text-4xl tabular">{conteudo.valor}</p>
+  return <p className="text-center font-mono text-4xl tabular sm:text-5xl">{conteudo.valor}</p>
 }
 
 function Fim({
@@ -143,25 +159,27 @@ function Fim({
   const velocidade = taxa(sessao.acertos, sessao.duracaoMs, jogo.unidade)
 
   return (
-    <section className="motion-safe:animate-surgir flex flex-col items-start gap-4 rounded-xl border border-borda bg-superficie p-6">
-      <h2 className="text-2xl font-bold">{bateu ? 'Recorde novo' : 'Tempo esgotado'}</h2>
-      <p className="text-suave">
-        {comUnidade(sessao.acertos, jogo.unidade)} em {duracao(sessao.duracaoMs)}
+    <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-6">
+      <h2 className="fonte-display text-2xl font-bold">
+        {bateu ? <span className="text-acento">Recorde novo</span> : 'Tempo esgotado'}
+      </h2>
+
+      <Placar valor={sessao.acertos} sufixo={jogo.unidade.plural} destacado={bateu} />
+
+      <p className="font-mono text-sm text-tenue">
+        {duracao(sessao.duracaoMs)}
         {velocidade && ` · ${velocidade}`}
         {sessao.erros > 0 && ` · ${sessao.erros} erro${sessao.erros > 1 ? 's' : ''}`}
       </p>
+
       {!bateu && recorde !== null && (
-        <p className="text-sm text-tenue">
-          seu recorde é {comUnidade(recorde, jogo.unidade)} — faltaram {recorde - sessao.acertos + 1}
+        <p className="text-sm text-suave">
+          faltaram <strong className="text-texto">{recorde - sessao.acertos + 1}</strong> para o
+          seu recorde de {recorde}
         </p>
       )}
-      <button
-        type="button"
-        onClick={sessao.iniciar}
-        className="rounded-lg bg-acento px-6 py-3 font-semibold text-fundo transition-opacity hover:opacity-90"
-      >
-        De novo
-      </button>
-    </section>
+
+      <Botao onClick={sessao.iniciar}>De novo</Botao>
+    </Painel>
   )
 }

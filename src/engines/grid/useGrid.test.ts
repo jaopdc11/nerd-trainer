@@ -6,9 +6,9 @@ import { useGrid } from './useGrid'
 
 type Parcial = Omit<ResultadoRun, 'jogoId' | 'modoId'>
 
-function montar(modoId: string) {
+function montar() {
   const aoFinalizar = vi.fn<(r: Parcial) => void>()
-  const config = tabelaPeriodica.config(modoId)
+  const config = tabelaPeriodica.config()
   const hook = renderHook(() => useGrid(config, aoFinalizar))
   act(() => {
     hook.result.current.iniciar()
@@ -24,9 +24,9 @@ const responder = (hook: ReturnType<typeof montar>['hook'], texto: string) => {
   return veredito
 }
 
-describe('modo pelo nome', () => {
+describe('preenchimento em ordem livre', () => {
   it('faz a resposta cair na célula certa, em qualquer ordem', () => {
-    const { hook } = montar('nome')
+    const { hook } = montar()
 
     responder(hook, 'ouro')
     responder(hook, 'hidrogênio')
@@ -40,7 +40,7 @@ describe('modo pelo nome', () => {
   })
 
   it('aceita sem acento e aceita o nome em latim', () => {
-    const { hook } = montar('nome')
+    const { hook } = montar()
     expect(responder(hook, 'nitrogenio')).not.toBe('errado')
     expect(responder(hook, 'Natrium')).not.toBe('errado')
     expect(hook.result.current.preenchidas.get('z7')).toBe('N')
@@ -48,7 +48,7 @@ describe('modo pelo nome', () => {
   })
 
   it('não preenche duas vezes a mesma célula', () => {
-    const { hook } = montar('nome')
+    const { hook } = montar()
     responder(hook, 'ferro')
     expect(responder(hook, 'ferro')).toBe('errado')
     expect(hook.result.current.acertos).toBe(1)
@@ -56,14 +56,14 @@ describe('modo pelo nome', () => {
   })
 
   it('conta erro quando o nome não existe', () => {
-    const { hook } = montar('nome')
+    const { hook } = montar()
     expect(responder(hook, 'kriptonita')).toBe('errado')
     expect(hook.result.current.acertos).toBe(0)
     expect(hook.result.current.erros).toBe(1)
   })
 
   it('não deixa um erro de digitação cair na célula de outro elemento', () => {
-    const { hook } = montar('nome')
+    const { hook } = montar()
     // "cobra" fica a um caractere de "cobre"; mas é curto demais para a
     // tolerância, e "cobalto" está por perto no baralho.
     expect(responder(hook, 'cobra')).toBe('errado')
@@ -72,49 +72,9 @@ describe('modo pelo nome', () => {
   })
 })
 
-describe('modo pelo símbolo', () => {
-  it('distingue Co de CO', () => {
-    const { hook } = montar('simbolo')
-    responder(hook, 'Co')
-    expect(hook.result.current.preenchidas.get('z27')).toBe('Co')
-
-    // CO não é elemento nenhum: não pode cair em cobalto nem em carbono.
-    expect(responder(hook, 'CO')).toBe('errado')
-    expect(hook.result.current.preenchidas.get('z6')).toBeUndefined()
-  })
-
-  it('recusa o símbolo em caixa errada', () => {
-    const { hook } = montar('simbolo')
-    expect(responder(hook, 'fe')).toBe('errado')
-    expect(responder(hook, 'FE')).toBe('errado')
-    expect(responder(hook, 'Fe')).not.toBe('errado')
-  })
-})
-
-describe('modo pelo número atômico', () => {
-  it('pergunta uma célula por vez e avança ao acertar', () => {
-    const { hook } = montar('por-z')
-    const primeiro = hook.result.current.alvo
-    expect(primeiro).not.toBeNull()
-
-    const z = Number(primeiro?.rotulo)
-    const nome = primeiro?.gabarito.split(' · ')[1] ?? ''
-    expect(responder(hook, nome)).not.toBe('errado')
-
-    expect(hook.result.current.preenchidas.get(`z${z}`)).toBeDefined()
-    expect(hook.result.current.alvo?.id).not.toBe(primeiro?.id)
-  })
-
-  it('aceita também o símbolo como resposta', () => {
-    const { hook } = montar('por-z')
-    const simbolo = hook.result.current.alvo?.gabarito.split(' · ')[0] ?? ''
-    expect(responder(hook, simbolo)).not.toBe('errado')
-  })
-})
-
 describe('encerramento', () => {
   it('desistir grava o parcial e lista o que faltou', () => {
-    const { hook, aoFinalizar } = montar('nome')
+    const { hook, aoFinalizar } = montar()
     responder(hook, 'ouro')
     responder(hook, 'prata')
 
@@ -133,7 +93,7 @@ describe('encerramento', () => {
   })
 
   it('não grava duas vezes se encerrar for chamado de novo', () => {
-    const { hook, aoFinalizar } = montar('nome')
+    const { hook, aoFinalizar } = montar()
     act(() => {
       hook.result.current.encerrar()
     })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { validar } from '@/core/answer'
+import { completaSemAmbiguidade, formasDeAutoCommit, validar } from '@/core/answer'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
 import type { Carta, ConfigFlashcard, ResultadoRun } from '@/core/types'
@@ -30,6 +30,7 @@ export interface SessaoFlashcard {
   readonly duracaoMs: number
   iniciar(): void
   responder(texto: string): Veredito
+  podeAutoCommitar(texto: string): boolean
   escolher(indice: number): Veredito
   reiniciar(): void
 }
@@ -157,6 +158,16 @@ export function useFlashcard(
     [carta, correcao, julgar],
   )
 
+  const podeAutoCommitar = useCallback(
+    (texto: string): boolean => {
+      if (!carta || carta.tipo !== 'digitada' || correcao !== null) return false
+      const auto = formasDeAutoCommit(carta.resposta)
+      if (!auto) return false
+      return completaSemAmbiguidade(auto.normalizar(texto), auto.formas)
+    },
+    [carta, correcao],
+  )
+
   const reiniciar = useCallback(() => {
     clearTimeout(pausa.current)
     setEstado('pronto')
@@ -174,6 +185,7 @@ export function useFlashcard(
     duracaoMs,
     iniciar,
     responder,
+    podeAutoCommitar,
     escolher,
     reiniciar,
   }

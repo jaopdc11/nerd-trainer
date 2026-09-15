@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { comUnidade, duracao, taxa } from '@/core/format'
 import type { ConfigSequencia, JogoSequencia, ResultadoRun } from '@/core/types'
 import { useSequence } from './useSequence'
@@ -16,10 +17,18 @@ export function SequenceEngine({ jogo, config, onFinalizar, recorde }: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useSequence(config, onFinalizar)
   const acabou = sessao.estado === 'morto' || sessao.estado === 'completo'
+  const superou = recorde !== null && sessao.indice > recorde
 
   return (
     <div ref={area} className="flex flex-col gap-5">
-      <Placar sessao={sessao} jogo={jogo} recorde={recorde} />
+      <div className="flex items-end justify-between gap-4">
+        <Placar
+          valor={sessao.indice}
+          sufixo={sessao.indice === 1 ? jogo.unidade.singular : jogo.unidade.plural}
+          destacado={superou}
+        />
+        <MarcaDeRecorde recorde={recorde} superou={superou} />
+      </div>
 
       <Fita sessao={sessao} config={config} />
 
@@ -29,7 +38,7 @@ export function SequenceEngine({ jogo, config, onFinalizar, recorde }: Props) {
         onCaractere={sessao.digitar}
         onEnviar={sessao.enviar}
         bloqueado={acabou}
-        placeholder={config.entrada === 'caractere' ? 'digite…' : 'digite e tecle Enter'}
+        placeholder={config.entrada === 'caractere' ? 'digite' : 'digite e tecle Enter'}
         rotuloAria={`Próximo item de ${jogo.nome}`}
         ancora={area}
       />
@@ -39,60 +48,49 @@ export function SequenceEngine({ jogo, config, onFinalizar, recorde }: Props) {
   )
 }
 
-function Placar({
-  sessao,
-  jogo,
-  recorde,
-}: {
-  sessao: Sessao
-  jogo: JogoSequencia
-  recorde: number | null
-}) {
-  const superou = recorde !== null && sessao.indice > recorde
-
+function MarcaDeRecorde({ recorde, superou }: { recorde: number | null; superou: boolean }) {
+  if (recorde === null) {
+    return <span className="pb-1 text-sm text-tenue">sem recorde ainda</span>
+  }
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <p className="font-mono text-5xl tabular font-bold text-texto">
-        {sessao.indice}
-        <span className="ml-2 text-base font-normal text-suave">
-          {sessao.indice === 1 ? jogo.unidade.singular : jogo.unidade.plural}
-        </span>
-      </p>
-      <p className={`text-sm ${superou ? 'text-acento' : 'text-tenue'}`}>
-        {recorde === null
-          ? 'sem recorde ainda'
-          : superou
-            ? `recorde batido! era ${recorde}`
-            : `recorde: ${recorde}`}
-      </p>
-    </div>
+    <Etiqueta
+      className={
+        superou
+          ? 'mb-1 border-acento bg-acento-fundo text-acento motion-safe:animate-respirar'
+          : 'mb-1 text-tenue'
+      }
+    >
+      {superou ? `superou ${recorde}` : `recorde ${recorde}`}
+    </Etiqueta>
   )
 }
 
 /**
  * A fita mostra só os últimos itens acertados, e não a sequência inteira.
  *
- * Renderizar 1000 dígitos como 1000 elementos faz o re-render por tecla
- * engasgar no celular lá pela casa 400 — e ninguém lê mais do que as últimas
- * duas linhas mesmo. A contagem cheia fica no placar.
+ * Renderizar 10 mil dígitos como 10 mil elementos faz o re-render por tecla
+ * engasgar no celular já na casa 400 — e ninguém lê mais do que as duas últimas
+ * linhas mesmo. A contagem cheia fica no placar.
  */
 function Fita({ sessao, config }: { sessao: Sessao; config: ConfigSequencia }) {
   const primeiroIndice = sessao.indice - sessao.acertados.length
+  const morreu = sessao.estado === 'morto'
 
   const blocos = useMemo(() => {
     const agrupar = config.agrupar ?? 0
-    if (agrupar <= 0) return [sessao.acertados.join(config.separador ?? '')]
+    const sep = config.separador ?? ''
+    if (agrupar <= 0) return [sessao.acertados.join(sep)]
 
     const saida: string[] = []
     let atual: string[] = []
     sessao.acertados.forEach((item, i) => {
       atual.push(item)
       if ((primeiroIndice + i + 1) % agrupar === 0) {
-        saida.push(atual.join(config.separador ?? ''))
+        saida.push(atual.join(sep))
         atual = []
       }
     })
-    if (atual.length > 0) saida.push(atual.join(config.separador ?? ''))
+    if (atual.length > 0) saida.push(atual.join(sep))
     return saida
   }, [sessao.acertados, primeiroIndice, config.agrupar, config.separador])
 
@@ -102,24 +100,31 @@ function Fita({ sessao, config }: { sessao: Sessao; config: ConfigSequencia }) {
   }, [])
 
   return (
-    <div className="min-h-28 rounded-xl border border-borda bg-superficie p-4">
-      <p className="font-mono text-xl tabular leading-relaxed break-all text-texto">
+    <Painel className="min-h-32 p-5">
+      <p className="font-mono text-xl leading-relaxed break-all text-texto">
         {primeiroIndice === 0 && config.prefixo && (
-          <span className="text-suave">{config.prefixo}</span>
+          <span className="text-tenue">{config.prefixo}</span>
         )}
         {primeiroIndice > 0 && <span className="text-tenue">… </span>}
         {blocos.map((bloco, i) => (
-          // A posição no bloco é estável durante a partida: a fita só cresce.
-          // eslint-disable-next-line react-x/no-array-index-key
-          <span key={i} className="mr-2 inline-block">
+          // A fita só cresce, então a posição do bloco é estável na partida.
+          // biome-ignore lint/suspicious/noArrayIndexKey: índice estável por construção
+          <span key={i} className="mr-2.5 inline-block">
             {bloco}
           </span>
         ))}
-        <span ref={fim} className="motion-safe:animate-pulse text-acento">
-          ▍
-        </span>
+        {sessao.erro && (
+          <span className="rounded bg-erro-fundo px-1 text-erro line-through">
+            {sessao.erro.digitado}
+          </span>
+        )}
+        {!morreu && (
+          <span ref={fim} className="ml-0.5 text-acento motion-safe:animate-respirar">
+            ▍
+          </span>
+        )}
       </p>
-    </div>
+    </Painel>
   )
 }
 
@@ -140,46 +145,48 @@ function Revisao({
   const sep = config.separador ?? ''
 
   return (
-    <section className="motion-safe:animate-surgir flex flex-col gap-4 rounded-xl border border-borda bg-superficie p-5">
+    <Painel className="motion-safe:animate-surgir flex flex-col gap-5 p-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-xl font-bold">
-          {completou ? 'Sequência inteira!' : bateuRecorde ? 'Recorde novo' : 'Fim da partida'}
+        <h2 className="fonte-display text-xl font-bold">
+          {completou ? (
+            <span className="text-acento">Sequência inteira!</span>
+          ) : bateuRecorde ? (
+            <span className="text-acento">Recorde novo</span>
+          ) : (
+            'Fim da partida'
+          )}
         </h2>
-        <p className="text-sm text-suave">
+        <p className="font-mono text-sm text-tenue">
           {comUnidade(sessao.indice, jogo.unidade)} · {duracao(sessao.duracaoMs)}
           {velocidade && ` · ${velocidade}`}
         </p>
       </header>
 
       {sessao.erro && (
-        <p className="font-mono text-lg">
-          <span className="text-suave">na casa {sessao.erro.indice + 1} você digitou </span>
-          <span className="rounded bg-erro-fundo px-1.5 py-0.5 text-erro">
+        <p className="font-mono">
+          <span className="text-suave">casa {sessao.erro.indice + 1}: você digitou </span>
+          <span className="rounded-md bg-erro-fundo px-2 py-1 text-erro">
             {sessao.erro.digitado}
           </span>
-          <span className="text-suave">, mas era </span>
-          <span className="rounded bg-acento-fundo px-1.5 py-0.5 text-acento">
+          <span className="text-suave">, era </span>
+          <span className="rounded-md bg-acento-fundo px-2 py-1 text-acento">
             {sessao.erro.esperado}
           </span>
         </p>
       )}
 
       {sessao.proximos.length > 0 && (
-        <div>
-          <p className="mb-1 text-sm text-suave">O que vinha a seguir — decore antes de repetir:</p>
-          <p className="font-mono text-2xl tabular tracking-wide break-all text-acento">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-suave">O que vinha a seguir — decore antes de repetir:</p>
+          <p className="rounded-xl border border-acento/30 bg-acento-fundo/25 px-4 py-3 font-mono text-2xl tracking-wide break-all text-acento">
             {sessao.proximos.join(sep)}
           </p>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={sessao.reiniciar}
-        className="self-start rounded-lg bg-acento px-5 py-2.5 font-semibold text-fundo transition-opacity hover:opacity-90"
-      >
+      <Botao onClick={sessao.reiniciar} className="self-start">
         Tentar de novo
-      </button>
-    </section>
+      </Botao>
+    </Painel>
   )
 }

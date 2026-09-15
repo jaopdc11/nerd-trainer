@@ -13,27 +13,7 @@ import type { Carta, JogoFlashcard } from '@/core/types'
 
 // --- alfabeto grego ---------------------------------------------------------
 
-/** Nome → símbolo. A resposta é símbolo, então a caixa importa (Σ ≠ σ). */
-function gregoParaSimbolo(rng: Rng, minuscula: boolean): readonly Carta[] {
-  return rng.shuffle(ALFABETO_GREGO).map((letra): Carta => {
-    const alvo = minuscula ? letra.minuscula : letra.maiuscula
-    return {
-      tipo: 'digitada',
-      id: `grego-simbolo-${letra.ordem}`,
-      pergunta: { kind: 'texto', valor: letra.nome },
-      dica: minuscula ? 'minúscula' : 'maiúscula',
-      resposta: {
-        tipo: 'simbolo',
-        canonica: alvo,
-        // As variantes são desenhos da mesma letra e valem só na minúscula.
-        aceitas: minuscula ? [...(letra.variantes ?? [])] : [],
-      },
-      gabarito: alvo,
-    }
-  })
-}
-
-/** Símbolo → nome. Aqui a resposta é texto: acento e caixa não importam. */
+/** Símbolo → nome. A resposta é texto: acento e caixa não importam. */
 function gregoParaNome(rng: Rng): readonly Carta[] {
   return rng.shuffle(ALFABETO_GREGO).map((letra): Carta => {
     const glifo = rng.chance(0.5) ? letra.minuscula : letra.maiuscula
@@ -59,26 +39,16 @@ export const alfabetoGrego: JogoFlashcard = {
   mecanica: 'flashcard',
   nome: 'Alfabeto grego',
   icone: 'αβγ',
-  resumo: 'As 24 letras, do alfa ao ômega, nos dois sentidos.',
+  resumo: 'As 24 letras: aparece o glifo, você escreve o nome.',
   categoria: 'matematica',
   unidade: { singular: 'letra', plural: 'letras' },
   comoJogar: [
     'O baralho vai até o fim: errar custa o ponto, não a partida.',
-    'No modo símbolo, a caixa importa — Σ não é σ.',
-    'No modo nome, "mi" e "mu" valem igual; acento é opcional.',
+    'A letra aparece em maiúscula ou minúscula, sorteada.',
+    '"mi" e "mu" valem igual; acento é opcional.',
   ],
-  modos: [
-    { id: 'nome', nome: 'Símbolo → nome', resumo: 'Vê a letra, escreve o nome' },
-    { id: 'minuscula', nome: 'Nome → minúscula', resumo: 'Vê o nome, escreve α' },
-    { id: 'maiuscula', nome: 'Nome → maiúscula', resumo: 'Vê o nome, escreve Α' },
-  ],
-  config: (modoId) => ({
-    montarBaralho: (rng) =>
-      modoId === 'minuscula'
-        ? gregoParaSimbolo(rng, true)
-        : modoId === 'maiuscula'
-          ? gregoParaSimbolo(rng, false)
-          : gregoParaNome(rng),
+  config: () => ({
+    montarBaralho: gregoParaNome,
     fim: 'baralho',
     teclado: 'texto',
   }),
@@ -97,60 +67,34 @@ export const prefixosSI: JogoFlashcard = {
   mecanica: 'flashcard',
   nome: 'Prefixos SI',
   icone: 'n·μ·M',
-  resumo: 'De quetta a quecto, incluindo os quatro adotados em 2022.',
+  resumo: 'De quetta a quecto: aparece a potência, você escreve o nome.',
   categoria: 'fisica',
   unidade: { singular: 'prefixo', plural: 'prefixos' },
   comoJogar: [
-    'No modo expoente, responda só o número: "-6" ou "−6".',
-    'No modo símbolo, a caixa importa: k é quilo, K é kelvin.',
-    'Para micro vale tanto μ quanto µ — e até "u".',
+    'Aparece 10⁻⁹ e você escreve "nano".',
+    'São 24, incluindo os quatro adotados pela CGPM em 2022.',
+    'Acento e maiúscula não importam.',
   ],
-  modos: [
-    { id: 'expoente', nome: 'Nome → expoente', resumo: 'micro → −6' },
-    { id: 'simbolo', nome: 'Nome → símbolo', resumo: 'quilo → k' },
-    { id: 'nome', nome: 'Expoente → nome', resumo: '10⁻⁹ → nano' },
-  ],
-  config: (modoId) => ({
+  config: () => ({
     montarBaralho: (rng) =>
-      rng.shuffle(PREFIXOS_SI).map((p): Carta => {
-        if (modoId === 'simbolo') {
-          return {
-            tipo: 'digitada',
-            id: `si-simbolo-${p.nome}`,
-            pergunta: { kind: 'texto', valor: p.nome },
-            resposta: {
-              tipo: 'simbolo',
-              canonica: p.simbolo,
-              aceitas: [...(p.simbolosAceitos ?? [])],
-            },
-            gabarito: p.simbolo,
-          }
-        }
-        if (modoId === 'nome') {
-          return {
-            tipo: 'digitada',
-            id: `si-nome-${p.nome}`,
-            pergunta: { kind: 'texto', valor: `10${sobrescrito(p.expoente)}` },
-            resposta: {
-              tipo: 'texto',
-              canonica: p.nome,
-              aceitas: [p.nome, ...p.sinonimos],
-              opcoes: { tolerarTypo: false },
-            },
-            gabarito: p.nome,
-          }
-        }
-        return {
+      rng.shuffle(PREFIXOS_SI).map(
+        (p): Carta => ({
           tipo: 'digitada',
-          id: `si-expoente-${p.nome}`,
-          pergunta: { kind: 'texto', valor: p.nome },
-          dica: 'só o expoente',
-          resposta: { tipo: 'inteiroGrande', valor: String(p.expoente) },
-          gabarito: String(p.expoente),
-        }
-      }),
+          id: `si-${p.nome}`,
+          pergunta: { kind: 'texto', valor: `10${sobrescrito(p.expoente)}` },
+          resposta: {
+            tipo: 'texto',
+            canonica: p.nome,
+            aceitas: [p.nome, ...p.sinonimos],
+            // Nomes de prefixo são curtos e parecidos (pico/peta, zepto/zetta):
+            // tolerar um caractere aceitaria o prefixo errado.
+            opcoes: { tolerarTypo: false },
+          },
+          gabarito: `${p.nome} (${p.simbolo})`,
+        }),
+      ),
     fim: 'baralho',
-    teclado: modoId === 'expoente' ? 'numerico' : 'texto',
+    teclado: 'texto',
   }),
 }
 

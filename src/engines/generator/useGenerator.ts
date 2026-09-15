@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { validar } from '@/core/answer'
+import { completaSemAmbiguidade, formasDeAutoCommit, validar } from '@/core/answer'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
 import type { Rng } from '@/core/rng'
@@ -37,6 +37,8 @@ export interface SessaoGerador {
   readonly duracaoMs: number
   iniciar(): void
   responder(texto: string): Veredito
+  /** O que foi digitado já é a resposta inteira? Dispensa o Enter. */
+  podeAutoCommitar(texto: string): boolean
   reiniciar(): void
 }
 
@@ -145,6 +147,19 @@ export function useGenerator(
     [estado, exercicio, correcao, acertos, config, relogio, sortear],
   )
 
+  const podeAutoCommitar = useCallback(
+    (texto: string): boolean => {
+      if (estado !== 'jogando' || !exercicio || correcao !== null) return false
+      const auto = formasDeAutoCommit(exercicio.resposta)
+      // `formasDeAutoCommit` devolve null para resposta numérica de precisão
+      // livre (ordem de grandeza): ali "3e8" e "3,0e8" são ambas válidas e não
+      // dá para saber quando o jogador terminou de digitar.
+      if (!auto) return false
+      return completaSemAmbiguidade(auto.normalizar(texto), auto.formas)
+    },
+    [estado, exercicio, correcao],
+  )
+
   const reiniciar = useCallback(() => {
     clearTimeout(pausa.current)
     setEstado('pronto')
@@ -167,6 +182,7 @@ export function useGenerator(
     duracaoMs,
     iniciar,
     responder,
+    podeAutoCommitar,
     reiniciar,
   }
 }

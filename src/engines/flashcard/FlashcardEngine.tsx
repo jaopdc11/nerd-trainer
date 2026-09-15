@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { comUnidade, duracao } from '@/core/format'
 import type { ConfigFlashcard, Conteudo, JogoFlashcard, ResultadoRun } from '@/core/types'
 import { useFlashcard } from './useFlashcard'
@@ -32,8 +33,9 @@ export function FlashcardEngine({ jogo, config, onFinalizar, recorde }: Props) {
               modo="linha"
               teclado={config.teclado}
               onEnviar={sessao.responder}
+              autoCommit={sessao.podeAutoCommitar}
               bloqueado={sessao.correcao !== null}
-              placeholder={sessao.carta.dica ?? 'resposta e Enter'}
+              placeholder={sessao.carta.dica ?? 'resposta'}
               rotuloAria="Resposta"
               ancora={area}
             />
@@ -59,26 +61,28 @@ function Abertura({
   recorde: number | null
   onIniciar: () => void
 }) {
+  const morteSubita = config.fim === 'morte-subita'
+
   return (
-    <div className="flex flex-col items-start gap-4 rounded-xl border border-borda bg-superficie p-6">
+    <Painel className="flex flex-col items-start gap-5 p-6">
+      <Etiqueta className={morteSubita ? 'border-erro/40 text-erro' : 'text-acento'}>
+        {morteSubita ? 'morte súbita' : 'baralho completo'}
+      </Etiqueta>
+
       <p className="text-suave">
-        {config.fim === 'morte-subita'
-          ? 'Um erro encerra a partida.'
-          : 'O baralho vai até o fim — errar custa o ponto, não a partida.'}
+        {morteSubita
+          ? 'Um erro encerra a partida — o placar é até onde você chegou.'
+          : 'O baralho vai até a última carta. Errar custa o ponto, não a partida.'}
       </p>
-      <p className="text-sm text-tenue">
-        {recorde === null
-          ? 'ainda sem recorde'
-          : `seu recorde: ${comUnidade(recorde, jogo.unidade)}`}
-      </p>
-      <button
-        type="button"
-        onClick={onIniciar}
-        className="rounded-lg bg-acento px-6 py-3 text-lg font-semibold text-fundo transition-opacity hover:opacity-90"
-      >
-        Começar
-      </button>
-    </div>
+
+      {recorde !== null && (
+        <p className="font-mono text-sm text-tenue">
+          seu recorde: <span className="text-acento">{comUnidade(recorde, jogo.unidade)}</span>
+        </p>
+      )}
+
+      <Botao onClick={onIniciar}>Começar</Botao>
+    </Painel>
   )
 }
 
@@ -86,53 +90,73 @@ function Progresso({ sessao, recorde }: { sessao: SessaoFlashcard; recorde: numb
   const superou = recorde !== null && sessao.acertos > recorde
 
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <p className="font-mono text-4xl tabular font-bold">
-        {sessao.acertos}
-        {sessao.total > 0 && <span className="text-xl text-tenue">/{sessao.total}</span>}
-      </p>
-      <p className={`text-sm ${superou ? 'text-acento' : 'text-tenue'}`}>
-        {superou ? 'recorde batido!' : recorde !== null ? `recorde: ${recorde}` : ''}
-      </p>
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-end justify-between gap-4">
+        <Placar
+          valor={sessao.acertos}
+          total={sessao.total > 0 ? sessao.total : undefined}
+          destacado={superou}
+        />
+        {recorde !== null && (
+          <Etiqueta
+            className={superou ? 'mb-1 border-acento text-acento' : 'mb-1 text-tenue'}
+          >
+            {superou ? 'recorde batido' : `recorde ${recorde}`}
+          </Etiqueta>
+        )}
+      </div>
+      {sessao.total > 0 && <Barra fracao={sessao.posicao / sessao.total} />}
     </div>
   )
 }
 
 function Pergunta({ sessao }: { sessao: SessaoFlashcard }) {
   return (
-    <div className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-xl border border-borda bg-superficie p-6 text-center">
-      {sessao.carta && <Render conteudo={sessao.carta.pergunta} />}
+    <Painel className="flex min-h-40 flex-col items-center justify-center gap-3 p-6 text-center">
+      {sessao.carta && (
+        <div key={sessao.carta.id} className="motion-safe:animate-surgir">
+          <Render conteudo={sessao.carta.pergunta} />
+        </div>
+      )}
       {sessao.correcao !== null && (
-        <p className="motion-safe:animate-surgir text-lg text-erro">
+        <p className="motion-safe:animate-surgir text-suave">
           era <strong className="text-acento">{sessao.correcao}</strong>
         </p>
       )}
-    </div>
+    </Painel>
   )
 }
 
-export function Render({ conteudo, classe }: { conteudo: Conteudo; classe?: string }) {
+function Render({ conteudo, classe }: { conteudo: Conteudo; classe?: string }) {
   if (conteudo.kind === 'mathml') {
-    // MathML pré-renderizado no build a partir do LaTeX do dataset. Nunca vem de
-    // entrada do jogador, por isso é seguro injetar.
+    // MathML pré-renderizado no build. Nunca vem de entrada do jogador.
     // biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle
-    return <div className={classe ?? 'text-3xl'} dangerouslySetInnerHTML={{ __html: conteudo.valor }} />
+    return (
+      <div
+        className={classe ?? 'text-3xl sm:text-4xl'}
+        dangerouslySetInnerHTML={{ __html: conteudo.valor }}
+      />
+    )
   }
-  return <p className={classe ?? 'text-3xl font-semibold'}>{conteudo.valor}</p>
+  return (
+    <p className={classe ?? 'fonte-display text-3xl font-semibold sm:text-4xl'}>
+      {conteudo.valor}
+    </p>
+  )
 }
 
 function Alternativas({ sessao }: { sessao: SessaoFlashcard }) {
   if (sessao.carta?.tipo !== 'escolha') return null
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    <ul className="escalonar grid gap-3 sm:grid-cols-2">
       {sessao.carta.alternativas.map((alt, i) => (
-        <li key={`${sessao.carta?.id}-${i}`}>
+        <li key={`${sessao.carta?.id}-${i}`} style={{ '--i': i } as React.CSSProperties}>
           <button
             type="button"
             disabled={sessao.correcao !== null}
             onClick={() => sessao.escolher(i)}
-            className="flex h-full w-full items-center justify-center rounded-xl border border-borda bg-superficie p-4 transition-colors hover:border-acento hover:bg-superficie-alta disabled:opacity-50"
+            className="flex h-full w-full items-center justify-center rounded-2xl border border-borda bg-superficie/70 p-5 transition-all duration-200 hover:border-acento hover:bg-superficie-alta disabled:opacity-40 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
           >
             <Render conteudo={alt} classe="text-xl" />
           </button>
@@ -155,27 +179,36 @@ function Fim({
   const zerou = sessao.total > 0 && sessao.acertos === sessao.total
 
   return (
-    <section className="motion-safe:animate-surgir flex flex-col items-start gap-4 rounded-xl border border-borda bg-superficie p-6">
-      <h2 className="text-2xl font-bold">
-        {zerou ? 'Baralho inteiro!' : bateu ? 'Recorde novo' : 'Fim da partida'}
+    <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-6">
+      <h2 className="fonte-display text-2xl font-bold">
+        {zerou ? (
+          <span className="text-acento">Baralho inteiro!</span>
+        ) : bateu ? (
+          <span className="text-acento">Recorde novo</span>
+        ) : (
+          'Fim da partida'
+        )}
       </h2>
-      <p className="text-suave">
-        {comUnidade(sessao.acertos, jogo.unidade)}
-        {sessao.total > 0 && ` de ${sessao.total}`} · {duracao(sessao.duracaoMs)}
+
+      <Placar
+        valor={sessao.acertos}
+        total={sessao.total > 0 ? sessao.total : undefined}
+        sufixo={jogo.unidade.plural}
+        destacado={bateu}
+      />
+
+      <p className="font-mono text-sm text-tenue">
+        {duracao(sessao.duracaoMs)}
         {sessao.erros > 0 && ` · ${sessao.erros} erro${sessao.erros > 1 ? 's' : ''}`}
       </p>
+
       {sessao.correcao !== null && (
-        <p className="text-lg">
+        <p className="text-suave">
           a resposta era <strong className="text-acento">{sessao.correcao}</strong>
         </p>
       )}
-      <button
-        type="button"
-        onClick={sessao.iniciar}
-        className="rounded-lg bg-acento px-6 py-3 font-semibold text-fundo transition-opacity hover:opacity-90"
-      >
-        De novo
-      </button>
-    </section>
+
+      <Botao onClick={sessao.iniciar}>De novo</Botao>
+    </Painel>
   )
 }
