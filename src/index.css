@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+/*
+ * Paleta única do app, declarada como tokens do Tailwind v4 (CSS-first, sem
+ * tailwind.config.js). Tema escuro fixo: o jogo é feito para sessões curtas à
+ * noite, e um seletor de tema só acrescentaria estado sem acrescentar valor.
+ */
+@theme {
+  --color-fundo: oklch(0.17 0.02 265);
+  --color-superficie: oklch(0.22 0.025 265);
+  --color-superficie-alta: oklch(0.27 0.03 265);
+  --color-borda: oklch(0.34 0.03 265);
+  --color-texto: oklch(0.95 0.01 265);
+  --color-suave: oklch(0.7 0.02 265);
+  --color-tenue: oklch(0.55 0.02 265);
+
+  --color-acento: oklch(0.78 0.16 165);
+  --color-acento-fundo: oklch(0.3 0.06 165);
+  --color-erro: oklch(0.68 0.19 25);
+  --color-erro-fundo: oklch(0.3 0.08 25);
+  --color-quase: oklch(0.8 0.15 85);
+  --color-quase-fundo: oklch(0.32 0.07 85);
+
+  --font-mono:
+    'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --animate-tremer: tremer 0.3s ease-in-out;
+  --animate-surgir: surgir 0.18s ease-out;
+}
+
+@keyframes tremer {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular por padrão nos dígitos: sem isso a fita de pi "pula" a cada tecla,
+   porque a largura do 1 é menor que a dos outros algarismos. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

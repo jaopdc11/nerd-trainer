@@ -1,0 +1,178 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { validar } from '@/core/answer'
+import type { Veredito } from '@/core/answer/types'
+import { mulberry32, seedAleatoria } from '@/core/rng'
+import type { Rng } from '@/core/rng'
+import { useClock } from '@/core/useClock'
+import type { ConfigGerador, Exercicio, ResultadoRun } from '@/core/types'
+
+/**
+ * Mecânica D: exercícios gerados na hora, contra o relógio.
+ *
+ * Errar não encerra a partida — encerraria em três segundos e o modo viraria
+ * outra coisa. O erro custa o tempo que passou, mostra o gabarito por um
+ * instante e segue. A partida acaba quando o relógio zera.
+ */
+
+export type EstadoGerador = 'pronto' | 'jogando' | 'fim'
+
+/** Quanto tempo o gabarito fica na tela depois de um erro. */
+const PAUSA_DO_ERRO_MS = 900
+
+/** Quantas chaves recentes lembrar, para não repetir o mesmo exercício. */
+const JANELA_ANTI_REPETICAO = 8
+
+/** Tentativas de sorteio antes de aceitar uma repetição e seguir em frente. */
+const TENTATIVAS = 12
+
+export interface SessaoGerador {
+  readonly estado: EstadoGerador
+  readonly exercicio: Exercicio | null
+  readonly acertos: number
+  readonly erros: number
+  readonly nivel: number
+  readonly restanteMs: number
+  /** Gabarito exibido após um erro; `null` enquanto ele responde. */
+  readonly correcao: string | null
+  readonly duracaoMs: number
+  iniciar(): void
+  responder(texto: string): Veredito
+  reiniciar(): void
+}
+
+export function useGenerator(
+  config: ConfigGerador,
+  aoFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void,
+): SessaoGerador {
+  const [estado, setEstado] = useState<EstadoGerador>('pronto')
+  const [exercicio, setExercicio] = useState<Exercicio | null>(null)
+  const [acertos, setAcertos] = useState(0)
+  const [erros, setErros] = useState(0)
+  const [correcao, setCorrecao] = useState<string | null>(null)
+  const [duracaoMs, setDuracaoMs] = useState(0)
+
+  const relogio = useClock(config.segundosIniciais * 1000, config.tetoSegundos * 1000)
+
+  const rng = useRef<Rng>(mulberry32(seedAleatoria()))
+  const recentes = useRef<string[]>([])
+  const runId = useRef(novoRunId())
+  const inicio = useRef(0)
+  const pausa = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const nivel = config.escala(acertos)
+
+  const sortear = useCallback(
+    (nivelAtual: number): Exercicio => {
+      // Rejection sampling: tenta algumas vezes evitar o que acabou de cair, e
+      // na última aceita o que vier — melhor repetir um exercício do que travar.
+      let candidato = config.gerar(rng.current, nivelAtual)
+      for (let i = 0; i < TENTATIVAS && recentes.current.includes(candidato.chave); i++) {
+        candidato = config.gerar(rng.current, nivelAtual)
+      }
+      recentes.current = [candidato.chave, ...recentes.current].slice(0, JANELA_ANTI_REPETICAO)
+      return candidato
+    },
+    [config],
+  )
+
+  const finalizar = useCallback(
+    (pontuacao: number, errosNaRun: number) => {
+      const ms = performance.now() - inicio.current
+      setDuracaoMs(ms)
+      setEstado('fim')
+      setExercicio(null)
+      aoFinalizar({
+        pontuacao,
+        duracaoMs: ms,
+        erros: errosNaRun,
+        completou: false,
+        runId: runId.current,
+      })
+    },
+    [aoFinalizar],
+  )
+
+  // O relógio zerou: encerra a partida.
+  const acertosRef = useRef(acertos)
+  const errosRef = useRef(erros)
+  acertosRef.current = acertos
+  errosRef.current = erros
+
+  useEffect(() => {
+    if (estado === 'jogando' && relogio.restanteMs <= 0) {
+      finalizar(acertosRef.current, errosRef.current)
+    }
+  }, [estado, relogio.restanteMs, finalizar])
+
+  useEffect(() => () => clearTimeout(pausa.current), [])
+
+  const iniciar = useCallback(() => {
+    rng.current = mulberry32(seedAleatoria())
+    recentes.current = []
+    runId.current = novoRunId()
+    inicio.current = performance.now()
+    setAcertos(0)
+    setErros(0)
+    setCorrecao(null)
+    setExercicio(sortear(config.escala(0)))
+    setEstado('jogando')
+    relogio.iniciar()
+  }, [config, sortear, relogio])
+
+  const responder = useCallback(
+    (texto: string): Veredito => {
+      if (estado !== 'jogando' || !exercicio || correcao !== null) return 'errado'
+
+      const r = validar(texto, exercicio.resposta, { rigor: 'estrito' })
+
+      if (r.veredito === 'certo') {
+        const novos = acertos + 1
+        setAcertos(novos)
+        relogio.creditar(config.bonusPorAcertoS * 1000)
+        setExercicio(sortear(config.escala(novos)))
+        return 'certo'
+      }
+
+      setErros((e) => e + 1)
+      // Mostra o gabarito por um instante: errar sem saber o certo não ensina.
+      setCorrecao(exercicio.gabarito)
+      pausa.current = setTimeout(() => {
+        setCorrecao(null)
+        setExercicio(sortear(config.escala(acertos)))
+      }, PAUSA_DO_ERRO_MS)
+      return 'errado'
+    },
+    [estado, exercicio, correcao, acertos, config, relogio, sortear],
+  )
+
+  const reiniciar = useCallback(() => {
+    clearTimeout(pausa.current)
+    setEstado('pronto')
+    setExercicio(null)
+    setAcertos(0)
+    setErros(0)
+    setCorrecao(null)
+    setDuracaoMs(0)
+    relogio.reiniciar()
+  }, [relogio])
+
+  return {
+    estado,
+    exercicio,
+    acertos,
+    erros,
+    nivel,
+    restanteMs: relogio.restanteMs,
+    correcao,
+    duracaoMs,
+    iniciar,
+    responder,
+    reiniciar,
+  }
+}
+
+function novoRunId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`
+}
