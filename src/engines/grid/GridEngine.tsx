@@ -156,6 +156,9 @@ function Celula({
   ref?: React.Ref<HTMLLIElement>
 }) {
   const preenchida = valor !== undefined
+  // O tooltip só existe depois que a célula foi revelada — mostrá-lo numa
+  // célula vazia durante a partida seria entregar a resposta.
+  const revelado = preenchida || revelar
 
   const classe = preenchida
     ? (COR_BLOCO[celula.grupo ?? ''] ?? 'border-borda-forte bg-superficie-alta text-texto')
@@ -171,10 +174,9 @@ function Celula({
       // `inline-size` liga as unidades cqw: assim o texto escala com a célula,
       // e não com a viewport.
       style={{ gridColumn: celula.coluna, gridRow: celula.linha, containerType: 'inline-size' }}
-      className={`flex aspect-square flex-col items-center justify-center overflow-hidden rounded-md border text-center transition-colors duration-200 ${classe} ${
+      className={`group relative flex aspect-square flex-col items-center justify-center rounded-md border text-center transition-colors duration-200 hover:z-50 ${classe} ${
         recemAcertada ? 'motion-safe:animate-brilho' : ''
       }`}
-      title={preenchida || revelar ? celula.gabarito : undefined}
     >
       {mostrarRotulo && celula.rotulo && (
         <span className="text-[min(0.6rem,18cqw)] leading-none opacity-60">{celula.rotulo}</span>
@@ -182,6 +184,17 @@ function Celula({
       <span className="font-mono text-[min(1rem,30cqw)] leading-tight font-bold">
         {preenchida ? valor : revelar ? celula.gabarito : ''}
       </span>
+
+      {revelado && celula.detalhe && (
+        <span
+          // `pointer-events-none` para o card não roubar o hover da célula
+          // vizinha; `invisible` em vez de `hidden` para a transição valer.
+          className="pointer-events-none invisible absolute bottom-[calc(100%+6px)] left-1/2 z-50 -translate-x-1/2 rounded-lg border border-borda-forte bg-fundo-alt px-2.5 py-1.5 whitespace-nowrap opacity-0 shadow-xl transition-opacity duration-150 group-hover:visible group-hover:opacity-100"
+        >
+          <span className="block font-mono text-[0.65rem] text-tenue">{celula.rotulo}</span>
+          <span className="block text-sm font-semibold text-texto">{celula.detalhe}</span>
+        </span>
+      )}
     </li>
   )
 }

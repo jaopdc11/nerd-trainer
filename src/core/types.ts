@@ -123,6 +123,8 @@ export interface CelulaGrade {
   readonly resposta: EspecResposta
   /** O que aparece no gabarito, no fim. */
   readonly gabarito: string
+  /** Texto longo do tooltip: só é exibido quando a célula já foi revelada. */
+  readonly detalhe?: string
   /** Classe de cor: bloco s/p/d/f, categoria, etc. */
   readonly grupo?: string
 }

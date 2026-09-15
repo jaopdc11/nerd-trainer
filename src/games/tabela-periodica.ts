@@ -32,6 +32,7 @@ export const tabelaPeriodica: JogoGrade = {
         rotulo: String(e.z),
         grupo: e.bloco,
         gabarito: e.simbolo,
+        detalhe: e.nome,
         resposta: {
           tipo: 'texto',
           canonica: e.nome,
