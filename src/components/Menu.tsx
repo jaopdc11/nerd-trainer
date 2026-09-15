@@ -37,7 +37,7 @@ export function Menu() {
             <span className="font-mono text-xs text-tenue">{jogos.length}</span>
           </div>
 
-          <ul className="escalonar grid gap-3 sm:grid-cols-2">
+          <ul className="escalonar grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {jogos.map((jogo, i) => (
               <li key={jogo.id} style={{ '--i': i } as React.CSSProperties}>
                 <CartaoJogo jogo={jogo} entrada={recordeDe(jogo.id)} />
@@ -59,10 +59,10 @@ function Capa({ partidas, jogados }: { partidas: number; jogados: number }) {
     <header className="flex flex-col gap-5 pt-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="fonte-display text-4xl leading-none font-bold sm:text-5xl">
+          <h1 className="fonte-display text-5xl leading-none font-bold sm:text-6xl">
             Nerd<span className="text-acento">Trainer</span>
           </h1>
-          <p className="max-w-md text-suave">
+          <p className="max-w-md text-lg text-suave">
             Um pouco por dia, tentando bater o recorde de ontem.
           </p>
         </div>

@@ -14,17 +14,22 @@ import { useRecordes } from '@/core/useRecords'
 export function App() {
   const rota = useRota()
 
-  // A tabela periódica tem 18 colunas: espremê-la em `max-w-2xl` era o que
-  // deixava as células ilegíveis. As outras telas são de leitura e continuam
-  // estreitas, que é onde texto se lê melhor.
-  const largo = rota.nome === 'jogo' && buscarJogo(rota.jogoId)?.mecanica === 'grade'
+  // A tabela periódica se autolimita pela altura, então ali o container pode ser
+  // apertado; o resto usa a largura da tela. Só os textos longos ganham um
+  // limite próprio lá dentro, porque linha larga demais cansa de ler.
+  const mecanica = rota.nome === 'jogo' ? buscarJogo(rota.jogoId)?.mecanica : undefined
+
+  const largura =
+    mecanica === 'grade'
+      ? 'max-w-[72rem]'
+      : mecanica === 'flashcard' || mecanica === 'gerador'
+        ? 'max-w-4xl'
+        : mecanica === 'sequencia'
+          ? 'max-w-6xl'
+          : 'max-w-7xl'
 
   return (
-    <div
-      className={`mx-auto min-h-dvh w-full px-4 ${
-        largo ? 'max-w-[68rem] py-4' : 'max-w-2xl py-6 sm:py-10'
-      }`}
-    >
+    <div className={`mx-auto min-h-dvh w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 ${largura}`}>
       {rota.nome === 'jogo' ? (
         <Jogo jogoId={rota.jogoId} modoId={rota.modoId} />
       ) : rota.nome === 'recordes' ? (
