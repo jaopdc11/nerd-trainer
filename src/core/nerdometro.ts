@@ -95,15 +95,27 @@ export interface Faixa {
 }
 
 export const FAIXAS: readonly Faixa[] = [
-  { minimo: 95, titulo: 'Tem fórmula tatuada', lema: 'não sobrou o que provar' },
-  { minimo: 85, titulo: 'Perigo em jantar de família', lema: 'ninguém mais pergunta nada' },
-  { minimo: 70, titulo: 'Enciclopédia ambulante', lema: 'o grupo já te consulta' },
-  { minimo: 55, titulo: 'Nerd de carteirinha', lema: 'sabe coisa que não cai na prova' },
+  { minimo: 95, titulo: 'Tem fórmula tatuada', lema: 'cara, vai arrumar uma namorada' },
+  {
+    minimo: 85,
+    titulo: 'Perigo em jantar de família',
+    lema: 'ninguém mais arrisca puxar assunto de ciência',
+  },
+  {
+    minimo: 70,
+    titulo: 'Enciclopédia ambulante',
+    lema: 'o grupo já te pergunta antes de procurar no Google',
+  },
+  {
+    minimo: 55,
+    titulo: 'Nerd de carteirinha',
+    lema: 'sabe um monte de coisa que não cai na prova',
+  },
   { minimo: 40, titulo: 'Nerd assumido', lema: 'e com orgulho' },
   { minimo: 25, titulo: 'Estudante aplicado', lema: 'o repertório está vindo' },
   { minimo: 10, titulo: 'Curioso', lema: 'começou a decorar as coisas' },
-  { minimo: 1, titulo: 'Só passando', lema: 'dá uma olhada nos outros jogos' },
-  { minimo: 0, titulo: 'Ainda não começou', lema: 'jogue qualquer coisa' },
+  { minimo: 1, titulo: 'Só passando', lema: 'deu uma espiada e foi embora' },
+  { minimo: 0, titulo: 'Ainda não começou', lema: 'jogue qualquer coisa aí' },
 ]
 
 export interface Nerdometro {
