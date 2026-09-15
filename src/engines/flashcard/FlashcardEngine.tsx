@@ -105,7 +105,14 @@ function Progresso({ sessao, recorde }: { sessao: SessaoFlashcard; recorde: numb
           </Etiqueta>
         )}
       </div>
-      {sessao.total > 0 && <Barra fracao={sessao.posicao / sessao.total} />}
+      {sessao.total > 0 && (
+        <>
+          <Barra fracao={sessao.posicao / sessao.total} variante="progresso" />
+          <p className="text-xs text-tenue">
+            carta {sessao.posicao + 1} de {sessao.total} · sem tempo, vá com calma
+          </p>
+        </>
+      )}
     </div>
   )
 }
@@ -156,9 +163,15 @@ function Alternativas({ sessao }: { sessao: SessaoFlashcard }) {
             type="button"
             disabled={sessao.correcao !== null}
             onClick={() => sessao.escolher(i)}
-            className="flex h-full w-full items-center justify-center rounded-2xl border border-borda bg-superficie/70 p-5 transition-all duration-200 hover:border-acento hover:bg-superficie-alta disabled:opacity-40 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
+            className="flex h-full w-full items-center gap-3 rounded-2xl border border-borda bg-superficie/70 p-4 text-left transition-all duration-200 hover:border-acento hover:bg-superficie-alta disabled:opacity-40 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
           >
-            <Render conteudo={alt} classe="text-xl" />
+            <span
+              aria-hidden
+              className="grid size-7 shrink-0 place-items-center rounded-lg border border-borda font-mono text-xs text-tenue"
+            >
+              {'ABCD'[i]}
+            </span>
+            <Render conteudo={alt} classe="text-base leading-snug font-medium sm:text-lg" />
           </button>
         </li>
       ))}

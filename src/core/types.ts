@@ -181,14 +181,29 @@ export interface ConfigFlashcard {
 // Mecânica D — gerador procedural cronometrado
 // ---------------------------------------------------------------------------
 
-export interface Exercicio {
+interface ExercicioBase {
   /** Chave estável para a anti-repetição: "mult:7x8". Normaliza operandos comutativos. */
   readonly chave: string
   readonly enunciado: Conteudo
-  readonly resposta: EspecResposta
   readonly gabarito: string
-  readonly teclado?: Teclado
 }
+
+/**
+ * Um exercício gerado. Digitado quando a resposta é curta (um número), de
+ * escolha quando digitá-la mediria outra coisa — escrever "36x^5" contra o
+ * relógio testa teclado, não derivada.
+ */
+export type Exercicio =
+  | (ExercicioBase & {
+      readonly tipo: 'digitado'
+      readonly resposta: EspecResposta
+      readonly teclado?: Teclado
+    })
+  | (ExercicioBase & {
+      readonly tipo: 'escolha'
+      readonly alternativas: readonly Conteudo[]
+      readonly indiceCorreto: number
+    })
 
 export interface ConfigGerador {
   gerar(rng: Rng, nivel: number): Exercicio

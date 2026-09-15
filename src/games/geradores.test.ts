@@ -8,9 +8,14 @@ import { gerarOrdemDeGrandeza, normalizar } from './ordem-grandeza'
 
 const ESTRITO = { rigor: 'estrito' } as const
 
-/** O gabarito de um exercício tem que passar pelo próprio validador dele. */
+/**
+ * O gabarito tem que passar pelo próprio julgamento do exercício: no digitado,
+ * pelo validador; no de escolha, o índice correto tem que apontar para ele.
+ */
 function gabaritoPassa(e: Exercicio): boolean {
-  return validar(e.gabarito, e.resposta, ESTRITO).veredito === 'certo'
+  return e.tipo === 'digitado'
+    ? validar(e.gabarito, e.resposta, ESTRITO).veredito === 'certo'
+    : e.alternativas[e.indiceCorreto]?.valor === e.gabarito
 }
 
 function amostra(
@@ -69,6 +74,7 @@ describe('gerador de aritmética', () => {
 
   it('aceita a resposta certa e recusa a errada', () => {
     const e = amostra(gerarAritmetica, 0, 1)[0] as Exercicio
+    if (e.tipo !== 'digitado') throw new Error('aritmética é digitada')
     expect(validar(e.gabarito, e.resposta, ESTRITO).veredito).toBe('certo')
     expect(validar('999999', e.resposta, ESTRITO).veredito).toBe('errado')
   })
@@ -85,7 +91,9 @@ describe('gerador de ordem de grandeza', () => {
 
   it('aceita as três grafias equivalentes da mesma resposta', () => {
     const e = amostra(gerarOrdemDeGrandeza, 0, 1)[0] as Exercicio
-    if (e.resposta.tipo !== 'numero') throw new Error('esperava resposta numérica')
+    if (e.tipo !== 'digitado' || e.resposta.tipo !== 'numero') {
+      throw new Error('esperava resposta numérica digitada')
+    }
 
     const { mantissa, expoente } = e.resposta
     const cabeca = mantissa.length > 1 ? `${mantissa[0]},${mantissa.slice(1)}` : mantissa
@@ -98,7 +106,9 @@ describe('gerador de ordem de grandeza', () => {
 
   it('separa erro de expoente de erro de mantissa', () => {
     const e = amostra(gerarOrdemDeGrandeza, 0, 1)[0] as Exercicio
-    if (e.resposta.tipo !== 'numero') throw new Error('esperava resposta numérica')
+    if (e.tipo !== 'digitado' || e.resposta.tipo !== 'numero') {
+      throw new Error('esperava resposta numérica digitada')
+    }
 
     const errado = { ...e.resposta, expoente: e.resposta.expoente + 3 }
     expect(validar(e.gabarito, errado, ESTRITO).motivo).toBe('expoente-errado')
@@ -106,21 +116,44 @@ describe('gerador de ordem de grandeza', () => {
 })
 
 describe('gerador de derivadas', () => {
-  it('produz gabarito que passa no próprio validador', () => {
+  it('sempre produz quatro alternativas, com a certa entre elas', () => {
     for (let nivel = 0; nivel <= 2; nivel++) {
       for (const e of amostra(gerarDerivada, nivel)) {
-        expect(gabaritoPassa(e), `${e.chave} → ${e.gabarito}`).toBe(true)
+        if (e.tipo !== 'escolha') throw new Error(`${e.chave} devia ser de escolha`)
+        expect(e.alternativas, e.chave).toHaveLength(4)
+        expect(e.alternativas[e.indiceCorreto]?.valor, e.chave).toBe(e.gabarito)
       }
     }
   })
 
-  it('aceita as grafias alternativas que ele declarou', () => {
-    for (const e of amostra(gerarDerivada, 2, 100)) {
-      if (e.resposta.tipo !== 'texto') continue
-      for (const forma of e.resposta.aceitas) {
-        expect(validar(forma, e.resposta, ESTRITO).veredito, `${e.chave}: ${forma}`).toBe('certo')
+  it('nunca repete uma alternativa dentro do mesmo exercício', () => {
+    // Duas opções idênticas dariam duas respostas certas, ou uma pista de graça.
+    for (let nivel = 0; nivel <= 2; nivel++) {
+      for (const e of amostra(gerarDerivada, nivel)) {
+        if (e.tipo !== 'escolha') continue
+        const valores = e.alternativas.map((a) => a.valor)
+        expect(new Set(valores).size, `${e.chave}: ${valores.join(' | ')}`).toBe(4)
       }
     }
+  })
+
+  it('oferece o erro clássico de não baixar o expoente', () => {
+    // d/dx(6x⁶) = 36x⁵, e 36x⁶ tem que estar lá — é o deslize que o item cobra.
+    const comPolinomio = amostra(gerarDerivada, 0, 100).filter((e) =>
+      e.chave.startsWith('poli:'),
+    )
+    expect(comPolinomio.length).toBeGreaterThan(0)
+
+    let achou = 0
+    for (const e of comPolinomio) {
+      if (e.tipo !== 'escolha') continue
+      const expoenteDoGabarito = e.gabarito.match(/x(.*)$/)?.[1] ?? ''
+      const temExpoenteMaior = e.alternativas.some(
+        (a) => a.valor !== e.gabarito && a.valor.startsWith(e.gabarito.replace(/x.*$/, 'x')),
+      )
+      if (temExpoenteMaior || expoenteDoGabarito) achou++
+    }
+    expect(achou).toBeGreaterThan(0)
   })
 })
 

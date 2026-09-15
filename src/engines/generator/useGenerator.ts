@@ -4,6 +4,7 @@ import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
 import type { Rng } from '@/core/rng'
 import { useClock } from '@/core/useClock'
+import { useSaveOnExit } from '@/core/useSaveOnExit'
 import type { ConfigGerador, Exercicio, ResultadoRun } from '@/core/types'
 
 /**
@@ -37,6 +38,7 @@ export interface SessaoGerador {
   readonly duracaoMs: number
   iniciar(): void
   responder(texto: string): Veredito
+  escolher(indice: number): Veredito
   /** O que foi digitado já é a resposta inteira? Dispensa o Enter. */
   podeAutoCommitar(texto: string): boolean
   reiniciar(): void
@@ -108,6 +110,15 @@ export function useGenerator(
 
   useEffect(() => () => clearTimeout(pausa.current), [])
 
+  // Fechou a aba ou voltou para o menu no meio da partida: o que já foi feito
+  // conta. Sem isso, quem fizesse 50 acertos e desistisse perdia os 50.
+  const estadoRef = useRef(estado)
+  estadoRef.current = estado
+  useSaveOnExit(
+    () => estadoRef.current === 'jogando',
+    () => finalizar(acertosRef.current, errosRef.current),
+  )
+
   const iniciar = useCallback(() => {
     rng.current = mulberry32(seedAleatoria())
     recentes.current = []
@@ -121,13 +132,10 @@ export function useGenerator(
     relogio.iniciar()
   }, [config, sortear, relogio])
 
-  const responder = useCallback(
-    (texto: string): Veredito => {
-      if (estado !== 'jogando' || !exercicio || correcao !== null) return 'errado'
-
-      const r = validar(texto, exercicio.resposta, { rigor: 'estrito' })
-
-      if (r.veredito === 'certo') {
+  /** Parte comum de acertar e errar, para digitado e escolha caírem no mesmo lugar. */
+  const julgar = useCallback(
+    (certo: boolean, gabarito: string): Veredito => {
+      if (certo) {
         const novos = acertos + 1
         setAcertos(novos)
         relogio.creditar(config.bonusPorAcertoS * 1000)
@@ -137,19 +145,39 @@ export function useGenerator(
 
       setErros((e) => e + 1)
       // Mostra o gabarito por um instante: errar sem saber o certo não ensina.
-      setCorrecao(exercicio.gabarito)
+      setCorrecao(gabarito)
       pausa.current = setTimeout(() => {
         setCorrecao(null)
         setExercicio(sortear(config.escala(acertos)))
       }, PAUSA_DO_ERRO_MS)
       return 'errado'
     },
-    [estado, exercicio, correcao, acertos, config, relogio, sortear],
+    [acertos, config, relogio, sortear],
+  )
+
+  const responder = useCallback(
+    (texto: string): Veredito => {
+      if (estado !== 'jogando' || !exercicio || correcao !== null) return 'errado'
+      if (exercicio.tipo !== 'digitado') return 'errado'
+      const r = validar(texto, exercicio.resposta, { rigor: 'estrito' })
+      return julgar(r.veredito === 'certo', exercicio.gabarito)
+    },
+    [estado, exercicio, correcao, julgar],
+  )
+
+  const escolher = useCallback(
+    (indice: number): Veredito => {
+      if (estado !== 'jogando' || !exercicio || correcao !== null) return 'errado'
+      if (exercicio.tipo !== 'escolha') return 'errado'
+      return julgar(indice === exercicio.indiceCorreto, exercicio.gabarito)
+    },
+    [estado, exercicio, correcao, julgar],
   )
 
   const podeAutoCommitar = useCallback(
     (texto: string): boolean => {
       if (estado !== 'jogando' || !exercicio || correcao !== null) return false
+      if (exercicio.tipo !== 'digitado') return false
       const auto = formasDeAutoCommit(exercicio.resposta)
       // `formasDeAutoCommit` devolve null para resposta numérica de precisão
       // livre (ordem de grandeza): ali "3e8" e "3,0e8" são ambas válidas e não
@@ -182,6 +210,7 @@ export function useGenerator(
     duracaoMs,
     iniciar,
     responder,
+    escolher,
     podeAutoCommitar,
     reiniciar,
   }

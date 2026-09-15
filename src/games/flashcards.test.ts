@@ -129,22 +129,42 @@ describe('constantes físicas', () => {
     }
   })
 
-  it('aceita a velocidade da luz em qualquer precisão a partir de 3 algarismos', () => {
-    const cartas = baralho(constantesFisicas)
-    const c = cartas.find((k) => k.id === 'const-c')
-    if (c?.tipo !== 'digitada') throw new Error('carta de c não encontrada')
-
-    for (const forma of ['299792458', '2,998e8', '3,00×10⁸', '2,9979e8']) {
-      expect(validar(forma, c.resposta, ESTRITO).veredito, forma).toBe('certo')
+  it('monta quatro opções, com a certa entre elas', () => {
+    for (const carta of baralho(constantesFisicas)) {
+      if (carta.tipo !== 'escolha') throw new Error(`${carta.id} devia ser de escolha`)
+      expect(carta.alternativas, carta.id).toHaveLength(4)
+      expect(carta.alternativas[carta.indiceCorreto]?.valor, carta.id).toBe(carta.gabarito)
     }
-    // Um algarismo só: ordem certa, precisão insuficiente.
-    expect(validar('3e8', c.resposta, ESTRITO).veredito).toBe('quase')
-    // Ordem de grandeza errada é outro tipo de erro, com mensagem própria.
-    expect(validar('3e9', c.resposta, ESTRITO).motivo).toBe('expoente-errado')
   })
 
-  it('nenhuma constante aceita o valor de outra', () => {
-    semColisao(constantesFisicas)
+  it('nunca repete uma opção dentro da mesma carta', () => {
+    for (const carta of baralho(constantesFisicas)) {
+      if (carta.tipo !== 'escolha') continue
+      const valores = carta.alternativas.map((a) => a.valor)
+      expect(new Set(valores).size, `${carta.id}: ${valores.join(' | ')}`).toBe(4)
+    }
+  })
+
+  it('usa a unidade certa em todas as opções, para não entregar a resposta', () => {
+    // Se só a opção certa tivesse a unidade da constante, dava para acertar sem
+    // saber o valor.
+    for (const carta of baralho(constantesFisicas)) {
+      if (carta.tipo !== 'escolha') continue
+      const unidades = carta.alternativas.map((a) => a.valor.replace(/^\S+\s/, ''))
+      expect(new Set(unidades).size, carta.id).toBe(1)
+    }
+  })
+
+  it('oferece a mesma mantissa com expoente trocado — o erro que importa', () => {
+    const cartas = baralho(constantesFisicas)
+    const c = cartas.find((k) => k.id === 'const-c')
+    if (c?.tipo !== 'escolha') throw new Error('carta de c não encontrada')
+
+    // O valor certo de c começa em 2,99792458; um distrator deve ter a mesma
+    // cabeça e outra potência de 10.
+    const cabeca = c.gabarito.split('×')[0]
+    const mesmosDigitos = c.alternativas.filter((a) => a.valor.startsWith(`${cabeca}×`))
+    expect(mesmosDigitos.length).toBeGreaterThan(1)
   })
 
   it('aceita as duas grafias de nome que o dataset declara', () => {

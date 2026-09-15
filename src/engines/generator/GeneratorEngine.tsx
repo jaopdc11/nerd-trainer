@@ -27,16 +27,25 @@ export function GeneratorEngine({ jogo, config, onFinalizar, recorde }: Props) {
         <>
           <Cronometro sessao={sessao} config={config} recorde={recorde} />
           <Enunciado sessao={sessao} />
-          <AnswerInput
-            modo="linha"
-            teclado={sessao.exercicio?.teclado ?? config.teclado}
-            onEnviar={sessao.responder}
-            autoCommit={sessao.podeAutoCommitar}
-            bloqueado={sessao.correcao !== null}
-            placeholder="resposta"
-            rotuloAria="Resposta"
-            ancora={area}
-          />
+
+          {sessao.exercicio?.tipo === 'escolha' ? (
+            <Alternativas sessao={sessao} />
+          ) : (
+            <AnswerInput
+              modo="linha"
+              teclado={
+                sessao.exercicio?.tipo === 'digitado'
+                  ? (sessao.exercicio.teclado ?? config.teclado)
+                  : config.teclado
+              }
+              onEnviar={sessao.responder}
+              autoCommit={sessao.podeAutoCommitar}
+              bloqueado={sessao.correcao !== null}
+              placeholder="resposta"
+              rotuloAria="Resposta"
+              ancora={area}
+            />
+          )}
         </>
       )}
 
@@ -133,6 +142,33 @@ function Enunciado({ sessao }: { sessao: SessaoGerador }) {
         </p>
       )}
     </Painel>
+  )
+}
+
+function Alternativas({ sessao }: { sessao: SessaoGerador }) {
+  if (sessao.exercicio?.tipo !== 'escolha') return null
+
+  return (
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {sessao.exercicio.alternativas.map((alt, i) => (
+        <li key={`${sessao.exercicio?.chave}-${i}`}>
+          <button
+            type="button"
+            disabled={sessao.correcao !== null}
+            onClick={() => sessao.escolher(i)}
+            className="flex h-full w-full items-center gap-3 rounded-2xl border border-borda bg-superficie/70 p-4 text-left transition-all duration-200 hover:border-acento hover:bg-superficie-alta disabled:opacity-40 motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.98]"
+          >
+            <span
+              aria-hidden
+              className="grid size-7 shrink-0 place-items-center rounded-lg border border-borda font-mono text-xs text-tenue"
+            >
+              {'ABCD'[i]}
+            </span>
+            <span className="font-mono text-lg sm:text-xl">{alt.valor}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 

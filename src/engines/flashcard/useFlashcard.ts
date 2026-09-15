@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { completaSemAmbiguidade, formasDeAutoCommit, validar } from '@/core/answer'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
+import { useSaveOnExit } from '@/core/useSaveOnExit'
 import type { Carta, ConfigFlashcard, ResultadoRun } from '@/core/types'
 
 /**
@@ -166,6 +167,17 @@ export function useFlashcard(
       return completaSemAmbiguidade(auto.normalizar(texto), auto.formas)
     },
     [carta, correcao],
+  )
+
+  const estadoRef = useRef(estado)
+  const acertosRef = useRef(acertos)
+  const errosRef = useRef(erros)
+  estadoRef.current = estado
+  acertosRef.current = acertos
+  errosRef.current = erros
+  useSaveOnExit(
+    () => estadoRef.current === 'jogando',
+    () => finalizar(acertosRef.current, errosRef.current, false),
   )
 
   const reiniciar = useCallback(() => {

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { useSaveOnExit } from '@/core/useSaveOnExit'
 import { validar } from '@/core/answer'
 import type { EspecResposta, Veredito } from '@/core/answer/types'
 import type { ConfigSequencia, ResultadoRun } from '@/core/types'
@@ -131,6 +132,16 @@ export function useSequence(
       return 'certo'
     },
     [estado, indice, itemEm, config.entrada, finalizar],
+  )
+
+  // Saiu no meio: as casas que ele já acertou contam como partida.
+  const estadoRef = useRef(estado)
+  const indiceRef = useRef(indice)
+  estadoRef.current = estado
+  indiceRef.current = indice
+  useSaveOnExit(
+    () => estadoRef.current === 'jogando',
+    () => finalizar(indiceRef.current, false, 0),
   )
 
   const reiniciar = useCallback(() => {

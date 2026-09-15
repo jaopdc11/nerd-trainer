@@ -41,6 +41,7 @@ function exibir({ mantissa, expoente }: Cientifico): string {
 
 function exercicio(chave: string, enunciado: string, alvo: Cientifico): Exercicio {
   return {
+    tipo: 'digitado',
     chave,
     enunciado: { kind: 'texto', valor: enunciado },
     resposta: {

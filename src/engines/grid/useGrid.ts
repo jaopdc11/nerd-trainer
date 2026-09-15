@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { completaSemAmbiguidade, formasDeAutoCommit, normalizarTexto, validar } from '@/core/answer'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
+import { useSaveOnExit } from '@/core/useSaveOnExit'
 import type { CelulaGrade, ConfigGrade, ResultadoRun } from '@/core/types'
 
 /**
@@ -194,6 +195,17 @@ export function useGrid(
       return completaSemAmbiguidade(auto.normalizar(texto), universoAberto)
     },
     [estado, config.celulas, universoAberto],
+  )
+
+  const estadoRef = useRef(estado)
+  const acertosRef = useRef(acertos)
+  const errosRef = useRef(erros)
+  estadoRef.current = estado
+  acertosRef.current = acertos
+  errosRef.current = erros
+  useSaveOnExit(
+    () => estadoRef.current === 'jogando',
+    () => finalizar(acertosRef.current, errosRef.current),
   )
 
   const encerrar = useCallback(() => {

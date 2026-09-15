@@ -100,41 +100,67 @@ export const prefixosSI: JogoFlashcard = {
 
 // --- constantes físicas -----------------------------------------------------
 
+/**
+ * Quantos algarismos você lembra — agora em quatro opções.
+ *
+ * Era digitado, e digitar "6,674×10⁻¹¹" contra uma lista de catorze constantes
+ * é castigo, não treino. Como card fica até melhor: os distratores podem ser a
+ * mesma mantissa com o expoente trocado, que é exatamente o erro que interessa
+ * pegar — quem confunde 10⁻¹¹ com 10⁻⁹ em G não sabe a constante.
+ */
+function cartaConstante(k: (typeof CONSTANTES_FISICAS)[number], rng: Rng): Carta {
+  const certo = exibirValor(k.mantissa, k.expoente, k.unidade)
+
+  // Três erros plausíveis: ordem de grandeza para mais, para menos, e a
+  // mantissa de outra constante com o expoente certo.
+  const outra = rng.pick(CONSTANTES_FISICAS.filter((c) => c.id !== k.id))
+  const candidatos = [
+    exibirValor(k.mantissa, k.expoente + rng.pick([1, 2, 3]), k.unidade),
+    exibirValor(k.mantissa, k.expoente - rng.pick([1, 2, 3]), k.unidade),
+    exibirValor(outra.mantissa.slice(0, k.mantissa.length), k.expoente, k.unidade),
+  ]
+
+  const errados = [...new Set(candidatos.filter((c) => c !== certo))]
+  let ajuste = 4
+  while (errados.length < 3) {
+    const extra = exibirValor(k.mantissa, k.expoente + ajuste, k.unidade)
+    if (extra !== certo && !errados.includes(extra)) errados.push(extra)
+    ajuste++
+  }
+
+  const opcoes = rng.shuffle([certo, ...errados.slice(0, 3)])
+
+  return {
+    tipo: 'escolha',
+    id: `const-${k.id}`,
+    pergunta: { kind: 'texto', valor: `${k.nome}  (${k.simbolo})` },
+    alternativas: opcoes.map((v) => ({ kind: 'texto' as const, valor: v })),
+    indiceCorreto: opcoes.indexOf(certo),
+    gabarito: certo,
+  }
+}
+
+function exibirValor(mantissa: string, expoente: number, unidade: string): string {
+  const cabeca = mantissa.length > 1 ? `${mantissa[0]},${mantissa.slice(1)}` : mantissa
+  const corpo = expoente === 0 ? cabeca : `${cabeca}×10${sobrescrito(expoente)}`
+  return `${corpo} ${unidade}`
+}
+
 export const constantesFisicas: JogoFlashcard = {
   id: 'constantes-fisicas',
   mecanica: 'flashcard',
   nome: 'Constantes físicas',
   icone: 'ħ',
-  resumo: 'c, h, G, k_B, N_A… quantos algarismos você lembra de cada uma.',
+  resumo: 'c, h, G, k_B, N_A — reconheça o valor certo entre quatro.',
   categoria: 'fisica',
   unidade: { singular: 'constante', plural: 'constantes' },
   comoJogar: [
-    'Responda o valor; a unidade já está na tela e não precisa ser digitada.',
-    'Três algarismos bastam: "3,00e8" vale tanto quanto "299792458".',
-    'Acertar o valor e errar a potência de 10 conta como erro — o jogo avisa.',
+    'Escolha o valor certo da constante entre as quatro opções.',
+    'As erradas costumam ter a mantissa certa e o expoente trocado.',
+    'O baralho vai até o fim: errar custa o ponto, não a partida.',
   ],
   config: () => ({
-    montarBaralho: (rng) =>
-      rng.shuffle(CONSTANTES_FISICAS).map((k): Carta => {
-        const cabeca =
-          k.mantissa.length > 1 ? `${k.mantissa[0]},${k.mantissa.slice(1)}` : k.mantissa
-        return {
-          tipo: 'digitada',
-          id: `const-${k.id}`,
-          pergunta: { kind: 'texto', valor: `${k.nome}  (${k.simbolo})` },
-          dica: `valor em ${k.unidade}`,
-          resposta: {
-            tipo: 'numero',
-            mantissa: k.mantissa,
-            expoente: k.expoente,
-            sigMin: k.sigMin,
-          },
-          gabarito:
-            k.expoente === 0
-              ? `${cabeca} ${k.unidade}`
-              : `${cabeca}×10${sobrescrito(k.expoente)} ${k.unidade}`,
-        }
-      }),
+    montarBaralho: (rng) => rng.shuffle(CONSTANTES_FISICAS).map((k) => cartaConstante(k, rng)),
     fim: 'baralho',
     teclado: 'texto',
   }),

@@ -20,6 +20,7 @@ type Gerador = (rng: Rng) => Exercicio
 /** Resposta inteira: aceita qualquer separador de milhar, exato via BigInt. */
 function inteiro(chave: string, enunciado: string, resultado: number): Exercicio {
   return {
+    tipo: 'digitado',
     chave,
     enunciado: { kind: 'texto', valor: enunciado },
     resposta: { tipo: 'inteiroGrande', valor: String(resultado) },
@@ -122,6 +123,7 @@ const fracao: Gerador = (rng) => {
   const canonica = den === 1 ? String(num) : `${num}/${den}`
 
   return {
+    tipo: 'digitado',
     chave: `frac:${n1}/${d1}+${n2}/${d2}`,
     enunciado: { kind: 'texto', valor: `${n1}/${d1} + ${n2}/${d2}` },
     resposta: {

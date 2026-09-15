@@ -111,23 +111,30 @@ export function Placar({
   )
 }
 
-/** Barra de progresso fina, usada pelo relógio e pela grade. */
+/**
+ * Barra fina. A variante importa: 'tempo' acende em neon e vira vermelha no
+ * fim, 'progresso' fica discreta. Usar a mesma barra para as duas coisas fazia
+ * o avanço do baralho parecer contagem regressiva.
+ */
 export function Barra({
   fracao,
+  variante = 'tempo',
   alerta = false,
 }: {
   fracao: number
+  variante?: 'tempo' | 'progresso'
   alerta?: boolean
 }) {
+  const tempo = variante === 'tempo'
   return (
-    <div className="h-1.5 overflow-hidden rounded-full bg-superficie-alta">
+    <div className={`overflow-hidden rounded-full bg-superficie-alta ${tempo ? 'h-1.5' : 'h-1'}`}>
       <div
         className={`h-full rounded-full transition-[width] duration-150 ${
-          alerta ? 'bg-erro' : 'bg-acento'
+          alerta ? 'bg-erro' : tempo ? 'bg-acento' : 'bg-borda-forte'
         }`}
         style={{
           width: `${Math.max(0, Math.min(1, fracao)) * 100}%`,
-          boxShadow: alerta ? undefined : '0 0 12px var(--color-acento)',
+          boxShadow: tempo && !alerta ? '0 0 12px var(--color-acento)' : undefined,
         }}
       />
     </div>
