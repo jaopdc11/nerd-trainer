@@ -102,40 +102,23 @@ const quadradoGrande: Gerador = (rng) => {
   return inteiro(`quad:${n}`, `${n}²`, n * n)
 }
 
-// --- nível 4: frações -------------------------------------------------------
+// --- nível 4: raízes exatas ---------------------------------------------------
 
-const mdc = (a: number, b: number): number => (b === 0 ? a : mdc(b, a % b))
+/**
+ * Raiz de quadrado perfeito. Entrou no lugar das frações: digitar "5/6" contra
+ * o relógio mede teclado, não cálculo — o mesmo motivo que tirou a notação
+ * matemática dos outros jogos cronometrados.
+ */
+const raizExata: Gerador = (rng) => {
+  const n = rng.int(4, 30)
+  return inteiro(`raiz:${n}`, `√${n * n}`, n)
+}
 
-const fracao: Gerador = (rng) => {
-  const d1 = rng.pick([2, 3, 4, 5, 6, 8] as const)
-  let d2 = rng.pick([2, 3, 4, 5, 6, 8] as const)
-  if (d2 === d1) d2 = d1 === 2 ? 3 : 2
-
-  const n1 = rng.int(1, d1 - 1)
-  const n2 = rng.int(1, d2 - 1)
-
-  const numerador = n1 * d2 + n2 * d1
-  const denominador = d1 * d2
-  const g = mdc(numerador, denominador)
-  const num = numerador / g
-  const den = denominador / g
-
-  const canonica = den === 1 ? String(num) : `${num}/${den}`
-
-  return {
-    tipo: 'digitado',
-    chave: `frac:${n1}/${d1}+${n2}/${d2}`,
-    enunciado: { kind: 'texto', valor: `${n1}/${d1} + ${n2}/${d2}` },
-    resposta: {
-      tipo: 'texto',
-      canonica,
-      // A fração tem que vir simplificada; o que varia é só o espaçamento.
-      aceitas: [canonica, canonica.replace('/', ' / ')],
-      opcoes: { ignorarArtigos: false, tolerarTypo: false },
-    },
-    gabarito: canonica,
-    teclado: 'texto',
-  }
+/** Multiplicação de dois números de dois dígitos, o topo do cálculo mental. */
+const mult2por2: Gerador = (rng) => {
+  const a = rng.int(11, 29)
+  const b = rng.int(11, 29)
+  return inteiro(chaveComutativa('mult22', a, b), `${a} × ${b}`, a * b)
 }
 
 /**
@@ -147,7 +130,7 @@ const DEGRAUS: readonly (readonly Gerador[])[] = [
   [soma2, sub2, divisaoExata],
   [mult2por1, quadradoPequeno],
   [porcentagem, quadradoGrande],
-  [fracao],
+  [raizExata, mult2por2],
 ]
 
 export const NIVEL_MAX = DEGRAUS.length - 1

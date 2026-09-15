@@ -68,7 +68,7 @@ describe('gerador de aritmética', () => {
   it('acumula os níveis em vez de substituí-los', () => {
     // No topo da escada ainda tem que cair conta básica de vez em quando.
     const chaves = amostra(gerarAritmetica, NIVEL_MAX, 400).map((e) => e.chave)
-    expect(chaves.some((c) => c.startsWith('frac:'))).toBe(true)
+    expect(chaves.some((c) => c.startsWith('raiz:') || c.startsWith('mult22:'))).toBe(true)
     expect(chaves.some((c) => c.startsWith('soma:') || c.startsWith('mult:'))).toBe(true)
   })
 
@@ -154,6 +154,18 @@ describe('gerador de derivadas', () => {
       if (temExpoenteMaior || expoenteDoGabarito) achou++
     }
     expect(achou).toBeGreaterThan(0)
+  })
+})
+
+describe('cálculo rápido é todo digitável', () => {
+  it('nunca gera fração nem notação, só número', () => {
+    // Digitar "5/6" ou "36x^5" contra o relógio mede teclado, não cálculo.
+    for (let nivel = 0; nivel <= NIVEL_MAX; nivel++) {
+      for (const e of amostra(gerarAritmetica, nivel, 200)) {
+        expect(e.tipo, e.chave).toBe('digitado')
+        expect(e.gabarito, e.chave).toMatch(/^-?\d+$/)
+      }
+    }
   })
 })
 
