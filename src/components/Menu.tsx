@@ -7,7 +7,7 @@ import { ROTULO_CATEGORIA } from '@/core/types'
 import type { JogoModule } from '@/core/types'
 import { useRecordes } from '@/core/useRecords'
 import { Nerdometro } from './Nerdometro'
-import { CORES_CATEGORIA, Etiqueta } from './ui'
+import { CORES_CATEGORIA, Etiqueta, IconeJogo } from './ui'
 
 export function Menu() {
   const { banco, recordeDe } = useRecordes()
@@ -69,9 +69,15 @@ function Capa({ partidas, jogados }: { partidas: number; jogados: number }) {
 
         <a
           href={href({ nome: 'recordes' })}
-          className="shrink-0 rounded-xl border border-borda bg-superficie/70 px-4 py-2.5 text-sm text-suave transition-colors hover:border-acento hover:text-texto"
+          className="group flex shrink-0 items-center gap-2.5 rounded-xl border border-borda bg-superficie/70 px-4 py-3 transition-all hover:border-acento hover:bg-superficie-alta motion-safe:hover:-translate-y-0.5"
         >
-          recordes
+          <span aria-hidden className="text-lg text-acento">
+            ▲
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-sm font-semibold text-texto">Recordes</span>
+            <span className="text-xs text-tenue">histórico e evolução</span>
+          </span>
         </a>
       </div>
 
@@ -100,12 +106,11 @@ function CartaoJogo({ jogo, entrada }: { jogo: JogoModule; entrada: Entrada | nu
       className={`group flex h-full flex-col gap-3 rounded-2xl border border-borda bg-superficie/70 p-4 backdrop-blur-sm transition-all duration-200 hover:bg-superficie-alta motion-safe:hover:-translate-y-0.5 ${cor.borda}`}
     >
       <div className="flex items-center gap-3">
-        <span
-          aria-hidden
-          className={`grid size-11 shrink-0 place-items-center rounded-xl font-mono text-lg font-bold transition-transform duration-200 motion-safe:group-hover:scale-110 ${cor.fundo} ${cor.texto}`}
-        >
-          {jogo.icone}
-        </span>
+        <IconeJogo
+          icone={jogo.icone}
+          categoria={jogo.categoria}
+          className="transition-transform duration-200 motion-safe:group-hover:scale-110"
+        />
         <h3 className="fonte-display leading-tight font-semibold">{jogo.nome}</h3>
       </div>
 

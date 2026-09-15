@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { href } from '@/core/route'
 import type { JogoModule } from '@/core/types'
-import { CORES_CATEGORIA } from './ui'
+import { CORES_CATEGORIA, IconeJogo } from './ui'
 
 /** Cabeçalho, instruções e navegação — o que toda mecânica precisa em volta. */
 export function GameShell({ jogo, children }: { jogo: JogoModule; children: React.ReactNode }) {
@@ -19,12 +19,7 @@ export function GameShell({ jogo, children }: { jogo: JogoModule; children: Reac
         </a>
 
         <h1 className="flex min-w-0 items-center gap-2.5">
-          <span
-            aria-hidden
-            className={`grid size-8 shrink-0 place-items-center rounded-lg font-mono text-sm font-bold ${cor.fundo} ${cor.texto}`}
-          >
-            {jogo.icone}
-          </span>
+          <IconeJogo icone={jogo.icone} categoria={jogo.categoria} tamanho="sm" />
           <span className="fonte-display truncate font-semibold">{jogo.nome}</span>
         </h1>
 

@@ -67,15 +67,63 @@ export function Painel({
 export function Etiqueta({
   children,
   className = '',
+  style,
 }: {
   children: ReactNode
   className?: string
+  style?: React.CSSProperties
 }) {
   return (
     <span
+      style={style}
       className={`rounded-md border border-borda px-2 py-0.5 font-mono text-[0.7rem] tracking-wide uppercase ${className}`}
     >
       {children}
+    </span>
+  )
+}
+
+/**
+ * O selo do jogo, num quadrado de tamanho fixo.
+ *
+ * O tamanho da fonte cai conforme o ícone é mais largo: ícones como "2·3·5" e
+ * "n·μ·M" vazavam do quadrado quando todos usavam a mesma medida. Escalar pelo
+ * comprimento resolve sem precisar escolher ícones curtos demais e perder o que
+ * eles dizem sobre o jogo.
+ */
+export function IconeJogo({
+  icone,
+  categoria,
+  tamanho = 'md',
+  className = '',
+}: {
+  icone: string
+  categoria: Categoria
+  tamanho?: 'sm' | 'md'
+  className?: string
+}) {
+  const cor = CORES_CATEGORIA[categoria]
+  const caixa = tamanho === 'sm' ? 'size-8 rounded-lg' : 'size-11 rounded-xl'
+
+  const fonte =
+    icone.length <= 1
+      ? tamanho === 'sm'
+        ? 'text-sm'
+        : 'text-lg'
+      : icone.length <= 2
+        ? tamanho === 'sm'
+          ? 'text-xs'
+          : 'text-base'
+        : icone.length <= 3
+          ? 'text-[0.62rem]'
+          : 'text-[0.52rem]'
+
+  return (
+    <span
+      aria-hidden
+      className={`grid shrink-0 place-items-center overflow-hidden px-0.5 font-mono font-bold ${caixa} ${fonte} ${cor.fundo} ${cor.texto} ${className}`}
+    >
+      {icone}
     </span>
   )
 }

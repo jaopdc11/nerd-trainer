@@ -5,13 +5,66 @@ import { href } from '@/core/route'
 import type { Banco } from '@/core/storage'
 import { Etiqueta } from './ui'
 
-/** Cor por faixa. Verde só no topo, para o topo significar alguma coisa. */
-function cor(nota: number): string {
-  if (nota >= 70) return 'text-acento'
-  if (nota >= 40) return 'text-mat'
-  if (nota >= 15) return 'text-qui'
-  return 'text-tenue'
+/**
+ * A escala de cor do medidor, do azul calmo à brasa.
+ *
+ * São stops escolhidos à mão, não um matiz girando. Rodar só o hue com
+ * luminosidade e croma fixos dá uma cor chapada — parece `color: purple` —
+ * porque cor bonita de interface varia nos três eixos: o começo da escala é
+ * dessaturado e frio, e o croma vai subindo até o topo "queimar".
+ *
+ * O caminho é crescente no círculo (248° → 388°=28°), passando por violeta,
+ * roxo e magenta. O atalho pelo outro lado atravessaria a faixa 100°–140°,
+ * onde nesta luminosidade só existe verde-limão ácido.
+ */
+interface Stop {
+  readonly em: number
+  readonly l: number
+  readonly c: number
+  readonly h: number
 }
+
+const ESCALA: readonly Stop[] = [
+  { em: 0, l: 0.72, c: 0.1, h: 248 },
+  { em: 20, l: 0.75, c: 0.12, h: 270 },
+  { em: 40, l: 0.74, c: 0.15, h: 298 },
+  { em: 60, l: 0.72, c: 0.18, h: 328 },
+  { em: 80, l: 0.7, c: 0.2, h: 358 },
+  { em: 100, l: 0.66, c: 0.22, h: 388 },
+]
+
+function interpolar(nota: number): Stop {
+  const n = Math.max(0, Math.min(100, nota))
+  const fim = ESCALA.findIndex((s) => s.em >= n)
+  const b = ESCALA[fim === -1 ? ESCALA.length - 1 : fim] as Stop
+  const a = (fim <= 0 ? b : ESCALA[fim - 1]) as Stop
+
+  const t = b.em === a.em ? 0 : (n - a.em) / (b.em - a.em)
+  return {
+    em: n,
+    l: a.l + (b.l - a.l) * t,
+    c: a.c + (b.c - a.c) * t,
+    h: a.h + (b.h - a.h) * t,
+  }
+}
+
+function corDaNota(nota: number, ajusteL = 0): string {
+  const s = interpolar(nota)
+  return `oklch(${(s.l + ajusteL).toFixed(3)} ${s.c.toFixed(3)} ${(s.h % 360).toFixed(1)})`
+}
+
+/** Gradiente para texto: o mesmo tom, do mais claro ao mais escuro. */
+function gradienteDaNota(nota: number): string {
+  return `linear-gradient(135deg, ${corDaNota(nota, 0.12)}, ${corDaNota(nota, -0.06)})`
+}
+
+/** Aplica o gradiente sobre o próprio texto. */
+const textoEmGradiente = (nota: number): React.CSSProperties => ({
+  backgroundImage: gradienteDaNota(nota),
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  color: 'transparent',
+})
 
 /**
  * Conta de 0 até o valor ao montar.
@@ -59,6 +112,8 @@ export function Nerdometro({ banco }: { banco: Banco }) {
 
   if (m.jogados === 0) return null
 
+  const tom = corDaNota(m.nota)
+
   return (
     <section className="overflow-hidden rounded-2xl border border-borda bg-superficie/70 backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-6 p-5">
@@ -68,7 +123,7 @@ export function Nerdometro({ banco }: { banco: Banco }) {
           <p className="text-xs tracking-[0.25em] text-tenue uppercase">Nerdômetro</p>
 
           <div>
-            <p className={`fonte-display text-3xl leading-none font-bold ${cor(m.nota)}`}>
+            <p className="fonte-display text-3xl leading-none font-bold" style={textoEmGradiente(m.nota)}>
               {m.faixa.titulo}
             </p>
             <p className="mt-1 text-sm text-suave">{m.faixa.lema}</p>
@@ -85,7 +140,9 @@ export function Nerdometro({ banco }: { banco: Banco }) {
             <Etiqueta className="text-suave">{m.partidas} partidas</Etiqueta>
             <Etiqueta className="text-suave">{formatarTempo(m.tempoMs)} jogados</Etiqueta>
             {m.dominados > 0 && (
-              <Etiqueta className="border-acento/40 text-acento">
+              <Etiqueta
+                style={{ color: tom, borderColor: corDaNota(m.nota, -0.18) }}
+              >
                 {m.dominados} no máximo
               </Etiqueta>
             )}
@@ -117,10 +174,23 @@ export function Nerdometro({ banco }: { banco: Banco }) {
 }
 
 function Medidor({ nota, animada }: { nota: number; animada: number }) {
+  const tom = corDaNota(nota)
+
   return (
     <div className="relative shrink-0">
       <svg viewBox="0 0 132 132" className="size-36" role="img" aria-label={`Nota ${nota} de 100`}>
         <title>Nerdômetro</title>
+
+        <defs>
+          {/* O arco preenchido percorre a própria escala: sai do azul do zero e
+              termina na cor da nota atual. */}
+          <linearGradient id="nerd-arco" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor={corDaNota(0)} />
+            <stop offset="35%" stopColor={corDaNota(nota * 0.35)} />
+            <stop offset="70%" stopColor={corDaNota(nota * 0.7)} />
+            <stop offset="100%" stopColor={corDaNota(nota, 0.06)} />
+          </linearGradient>
+        </defs>
 
         <circle
           cx="66"
@@ -153,18 +223,20 @@ function Medidor({ nota, animada }: { nota: number; animada: number }) {
           cy="66"
           r={RAIO}
           fill="none"
-          stroke="currentColor"
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={`${(ARCO * animada) / 100} 999`}
           transform={`rotate(${GIRO} 66 66)`}
-          className={cor(nota)}
-          style={{ filter: 'drop-shadow(0 0 7px currentColor)' }}
+          stroke="url(#nerd-arco)"
+          style={{ filter: `drop-shadow(0 0 7px ${tom})` }}
         />
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`font-mono text-5xl tabular leading-none font-bold ${cor(nota)}`}>
+        <span
+          className="font-mono text-5xl tabular leading-none font-bold"
+          style={textoEmGradiente(animada)}
+        >
           {animada}
         </span>
         <span className="mt-1 text-[0.65rem] tracking-wider text-tenue">DE 100</span>
@@ -179,10 +251,11 @@ function Area({ area }: { area: NotaArea }) {
       <span className="w-24 text-right text-xs text-tenue">{ROTULO_AREA[area.area]}</span>
       <span className="h-1.5 w-24 overflow-hidden rounded-full bg-superficie-alta">
         <span
-          className={`block h-full rounded-full transition-[width] duration-700 ${
-            area.nota >= 70 ? 'bg-acento' : 'bg-borda-forte'
-          }`}
-          style={{ width: `${area.nota}%` }}
+          className="block h-full rounded-full transition-[width] duration-700"
+          style={{
+            width: `${area.nota}%`,
+            backgroundImage: `linear-gradient(90deg, ${corDaNota(0)}, ${corDaNota(area.nota)})`,
+          }}
         />
       </span>
       <span className="w-8 font-mono text-xs text-suave">{area.nota}</span>
