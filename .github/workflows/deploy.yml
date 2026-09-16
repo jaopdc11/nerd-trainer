@@ -26,7 +26,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22, não 20: undici e jsdom exigem `markAsUncloneable`, que só existe
+          # a partir do Node 22. Em 20 o `npm ci` instala sem reclamar e o
+          # vitest morre na partida, antes de rodar um teste sequer.
+          node-version: 22
           cache: npm
       - run: npm ci
       # Os testes são a trava do deploy: os datasets gerados são versionados, e
