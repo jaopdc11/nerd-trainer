@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CURVA } from '@/core/nerdometro'
-import { CURVA_NA_FORMULA, FORMULA_FRACAO, FORMULA_NOTA } from './formula-nerdometro'
+import { CURVA_NA_FORMULA, FORMULA_FRACAO, FORMULA_NOTA, LEGENDA } from './formula-nerdometro'
 
 /**
  * A página que explica o Nerdômetro não pode mentir sobre o Nerdômetro.
@@ -22,7 +22,9 @@ describe('a fórmula exibida', () => {
   it('mostra o expoente com vírgula decimal, que é como se escreve em português', () => {
     // 0.65 -> "0,65". KaTeX parte o número em <mn>, então a busca é pela vírgula
     // acompanhada dos dígitos, não pela string inteira.
-    const semTags = FORMULA_NOTA.replace(/<[^>]+>/g, '')
+    // O expoente saiu da fórmula da nota (que agora usa γ) e vive onde γ é
+    // definido — que é o lugar certo dele.
+    const semTags = FORMULA_FRACAO.replace(/<[^>]+>/g, '')
     expect(semTags).toContain(String(CURVA).replace('.', ','))
     expect(semTags, 'ponto decimal não é português').not.toContain(String(CURVA))
   })
@@ -39,10 +41,25 @@ describe('a fórmula exibida', () => {
     expect(FORMULA_FRACAO.replace(/<[^>]+>/g, '')).toContain('min')
   })
 
-  it('nomeia as mesmas coisas que a explicação em prosa usa', () => {
-    const texto = `${FORMULA_NOTA}${FORMULA_FRACAO}`.replace(/<[^>]+>/g, '')
-    for (const palavra of ['nota', 'fração', 'peso', 'recorde', 'meta']) {
-      expect(texto, `a fórmula não fala em "${palavra}"`).toContain(palavra)
+  it('é somatório de verdade: tem índice e conjunto', () => {
+    // A primeira versão escrevia `Σ(fração × peso)`, sem índice — o que não
+    // soma coisa nenhuma. Somatório sem índice é ilustração, não fórmula.
+    const texto = FORMULA_NOTA.replace(/<[^>]+>/g, '')
+    expect(texto, 'faltou o operador de somatório').toContain('∑')
+    expect(texto, 'faltou o índice i').toContain('i')
+    expect(texto, 'faltou o conjunto J dos jogos jogados').toContain('J')
+    // Nada de palavra por extenso fazendo as vezes de variável.
+    for (const palavra of ['fração', 'peso', 'recorde', 'meta', 'nota']) {
+      expect(texto, `"${palavra}" por extenso dentro da fórmula`).not.toContain(palavra)
     }
+  })
+
+  it('todo símbolo da fórmula está na legenda', () => {
+    expect(LEGENDA.length).toBeGreaterThanOrEqual(7)
+    const naLegenda = LEGENDA.map((l) => l.simbolo.replace(/<[^>]+>/g, '')).join(' ')
+    for (const s of ['N', 'J', 'f', 'p', 'r', 'm', 'γ']) {
+      expect(naLegenda, `símbolo ${s} sem explicação`).toContain(s)
+    }
+    for (const l of LEGENDA) expect(l.oQueE.length).toBeGreaterThan(5)
   })
 })

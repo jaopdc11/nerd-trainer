@@ -1,6 +1,6 @@
 import { CURVA, CRITERIOS } from '@/core/nerdometro'
 import { PI_DECIMAIS } from '@/data/constantes-matematicas'
-import { FORMULA_FRACAO, FORMULA_NOTA } from '@/data/formula-nerdometro'
+import { FORMULA_FRACAO, FORMULA_NOTA, LEGENDA } from '@/data/formula-nerdometro'
 import { PAISES } from '@/data/paises'
 
 /** 0.65 → "0,65". Os números do texto saem do código; a vírgula é nossa. */
@@ -25,14 +25,24 @@ export function FormulaNerdometro() {
       {/* MathML pré-renderizado no build, como as fórmulas de física: zero
           KaTeX em runtime. Fórmula escrita em ASCII numa página que se propõe a
           explicar a conta é o mesmo que não explicar. */}
-      <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-2 py-1 text-base text-suave">
-        {/* Gerado por scripts/gen-formula-nerdometro.mjs a partir do código,
-            nunca de entrada do jogador. */}
+      <div className="flex flex-col items-center gap-3 py-2 text-base text-texto">
+        {/* Gerado por scripts/gen-formula-nerdometro.mjs a partir do código. */}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
-        <div dangerouslySetInnerHTML={{ __html: FORMULA_NOTA }} />
+        <div className="text-lg" dangerouslySetInnerHTML={{ __html: FORMULA_NOTA }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
-        <div dangerouslySetInnerHTML={{ __html: FORMULA_FRACAO }} />
+        <div className="text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_FRACAO }} />
       </div>
+
+      {/* Fórmula sem legenda é charada. */}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs sm:grid-cols-[auto_1fr_auto_1fr] sm:gap-x-4">
+        {LEGENDA.map((l) => (
+          <div key={l.oQueE} className="contents">
+            {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
+            <dt className="text-suave" dangerouslySetInnerHTML={{ __html: l.simbolo }} />
+            <dd className="text-tenue">{l.oQueE}</dd>
+          </div>
+        ))}
+      </dl>
 
       <p>
         A soma corre só sobre os <strong className="text-suave">jogos jogados</strong>. Jogo
