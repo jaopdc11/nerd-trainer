@@ -213,3 +213,27 @@ body::before {
   background: var(--color-acento-fundo);
   color: var(--color-texto);
 }
+
+/*
+ * Fórmula em MathML.
+ *
+ * O navegador renderiza `math` no tamanho do texto ao redor, e numa fração com
+ * somatório isso é fatal: o numerador cai para ~70% e os limites do Σ para
+ * ~50%, então o `i ∈ J` encosta no próprio sigma e os índices viram sujeira.
+ * Fórmula é conteúdo, não nota de rodapé — aqui ela manda no próprio tamanho.
+ */
+.formula math {
+  font-size: 1.75rem;
+  line-height: 1.9;
+}
+
+@media (max-width: 640px) {
+  .formula math {
+    font-size: 1.3rem;
+  }
+}
+
+/* A mesma regra, menor, para os símbolos soltos da legenda. */
+.simbolo math {
+  font-size: 1.05rem;
+}
