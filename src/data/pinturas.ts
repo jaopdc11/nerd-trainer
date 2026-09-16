@@ -66,6 +66,16 @@ export interface Quadro {
   readonly pintor: string
   readonly aceitas: readonly string[]
   readonly brasileiro: boolean
+  /**
+   * Há reprodução em `public/pinturas/<id>.jpg`, e a carta mostra o quadro.
+   *
+   * Cinco não têm, e a carta delas continua sendo o título: `antropofagia`,
+   * `cafe` e `homem-amarelo` não existem em reprodução nenhuma que este projeto
+   * possa usar, e `retirantes` e `guerra-e-paz` só existem como foto de parede
+   * de museu e de evento — carta com imagem errada é pior que carta sem imagem.
+   * Ver `scripts/gen-pinturas.mjs`, que registra onde cada uma foi procurada.
+   */
+  readonly imagem?: boolean
   /** Recado exibido quando a carta sai, acertada ou não. Ver o topo. */
   readonly aviso?: string
 }
@@ -79,6 +89,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Tarsila do Amaral',
     aceitas: ['Tarsila do Amaral', 'Tarsila'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'operarios',
@@ -87,6 +98,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Tarsila do Amaral',
     aceitas: ['Tarsila do Amaral', 'Tarsila'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'a-negra',
@@ -95,6 +107,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Tarsila do Amaral',
     aceitas: ['Tarsila do Amaral', 'Tarsila'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'antropofagia',
@@ -135,6 +148,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Portinari',
     aceitas: ['Portinari', 'Candido Portinari', 'Cândido Portinari'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'cinco-mocas',
@@ -143,6 +157,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Di Cavalcanti',
     aceitas: ['Di Cavalcanti', 'Emiliano Di Cavalcanti'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'samba',
@@ -151,6 +166,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Di Cavalcanti',
     aceitas: ['Di Cavalcanti', 'Emiliano Di Cavalcanti'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'a-boba',
@@ -159,6 +175,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Anita Malfatti',
     aceitas: ['Anita Malfatti', 'Malfatti'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'homem-amarelo',
@@ -177,6 +194,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Pedro Américo',
     aceitas: ['Pedro Américo', 'Pedro Americo'],
     brasileiro: true,
+    imagem: true,
     aviso: 'É o quadro que todo mundo chama de "O Grito do Ipiranga" — e que não é "O Grito", de Munch.',
   },
   {
@@ -186,6 +204,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Victor Meirelles',
     aceitas: ['Victor Meirelles', 'Vítor Meirelles', 'Meirelles'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'moema',
@@ -194,6 +213,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Victor Meirelles',
     aceitas: ['Victor Meirelles', 'Vítor Meirelles', 'Meirelles'],
     brasileiro: true,
+    imagem: true,
   },
   {
     id: 'caipira',
@@ -202,6 +222,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Almeida Júnior',
     aceitas: ['Almeida Júnior', 'Almeida Junior', 'José Ferraz de Almeida Júnior'],
     brasileiro: true,
+    imagem: true,
   },
 
   // --- Renascimento e Barroco ----------------------------------------------
@@ -212,6 +233,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Leonardo da Vinci',
     aceitas: ['Leonardo da Vinci', 'Da Vinci', 'Leonardo'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'ultima-ceia',
@@ -220,6 +242,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Leonardo da Vinci',
     aceitas: ['Leonardo da Vinci', 'Da Vinci', 'Leonardo'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'criacao-adao',
@@ -228,6 +251,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Michelangelo',
     aceitas: ['Michelangelo', 'Miguel Ângelo'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'nascimento-venus',
@@ -236,6 +260,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Botticelli',
     aceitas: ['Botticelli', 'Sandro Botticelli'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'escola-atenas',
@@ -244,6 +269,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Rafael',
     aceitas: ['Rafael', 'Rafael Sanzio', 'Raphael'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'jardim-delicias',
@@ -252,6 +278,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Bosch',
     aceitas: ['Bosch', 'Hieronymus Bosch', 'Jheronimus Bosch'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'ronda-noturna',
@@ -260,6 +287,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Rembrandt',
     aceitas: ['Rembrandt'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'as-meninas',
@@ -268,6 +296,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Velázquez',
     aceitas: ['Velázquez', 'Velazquez', 'Diego Velázquez'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'brinco-perola',
@@ -276,6 +305,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Vermeer',
     aceitas: ['Vermeer', 'Johannes Vermeer', 'Jan Vermeer'],
     brasileiro: false,
+    imagem: true,
   },
 
   // --- século XIX ------------------------------------------------------------
@@ -286,6 +316,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Goya',
     aceitas: ['Goya', 'Francisco de Goya'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'liberdade',
@@ -294,6 +325,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Delacroix',
     aceitas: ['Delacroix', 'Eugène Delacroix'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'onda',
@@ -302,6 +334,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Hokusai',
     aceitas: ['Hokusai', 'Katsushika Hokusai'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'impressao',
@@ -310,6 +343,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Monet',
     aceitas: ['Monet', 'Claude Monet'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'girassois',
@@ -318,6 +352,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Van Gogh',
     aceitas: ['Van Gogh', 'Vincent van Gogh'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'noite-estrelada',
@@ -326,6 +361,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Van Gogh',
     aceitas: ['Van Gogh', 'Vincent van Gogh'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'grito',
@@ -334,6 +370,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Munch',
     aceitas: ['Munch', 'Edvard Munch'],
     brasileiro: false,
+    imagem: true,
     aviso: 'Este é o de Munch. O do Ipiranga chama-se "Independência ou Morte" e é de Pedro Américo.',
   },
   {
@@ -343,6 +380,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Klimt',
     aceitas: ['Klimt', 'Gustav Klimt'],
     brasileiro: false,
+    imagem: true,
     aviso: 'Munch também pintou um "O Beijo", e o de Rodin é escultura — por isso o enunciado descreve o quadro.',
   },
 
@@ -354,6 +392,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Picasso',
     aceitas: ['Picasso', 'Pablo Picasso'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'persistencia',
@@ -362,6 +401,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Dalí',
     aceitas: ['Dalí', 'Dali', 'Salvador Dalí'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'guernica',
@@ -370,6 +410,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Picasso',
     aceitas: ['Picasso', 'Pablo Picasso'],
     brasileiro: false,
+    imagem: true,
   },
   {
     // "As Duas Fridas" seria a escolha óbvia, e é justamente por isso que não
@@ -382,6 +423,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Frida Kahlo',
     aceitas: ['Frida Kahlo', 'Frida', 'Kahlo'],
     brasileiro: false,
+    imagem: true,
   },
   {
     id: 'filho-homem',
@@ -390,6 +432,7 @@ export const QUADROS: readonly Quadro[] = [
     pintor: 'Magritte',
     aceitas: ['Magritte', 'René Magritte'],
     brasileiro: false,
+    imagem: true,
   },
 ]
 

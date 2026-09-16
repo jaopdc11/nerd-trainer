@@ -7,13 +7,21 @@ import type { Rng } from './rng'
  * storage e engines.
  */
 
-export const CATEGORIAS = ['matematica', 'fisica', 'quimica', 'geografia', 'humanas'] as const
+export const CATEGORIAS = [
+  'matematica',
+  'fisica',
+  'quimica',
+  'biologicas',
+  'geografia',
+  'humanas',
+] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
 export const ROTULO_CATEGORIA: Record<Categoria, string> = {
   matematica: 'Matemática',
   fisica: 'Física',
   quimica: 'Química',
+  biologicas: 'Biológicas',
   geografia: 'Geografia',
   humanas: 'Humanas',
 }
@@ -219,7 +227,21 @@ export type Conteudo =
    * nada. `alt` é obrigatório porque a imagem *é* a pergunta: sem ele o jogo
    * fica impossível no leitor de tela.
    */
-  | { readonly kind: 'imagem'; readonly valor: string; readonly alt: string }
+  | {
+      readonly kind: 'imagem'
+      readonly valor: string
+      readonly alt: string
+      /**
+       * Quanto espaço a figura pede.
+       *
+       * 'bandeira' é o padrão histórico: retângulo de proporção conhecida, que
+       * se reconhece pequeno — a da Suíça é quadrada, a do Catar é quase 1:2, e
+       * o que importa são as cores e o desenho central. 'quadro' é para
+       * reprodução de pintura, onde o assunto está nos detalhes: "As Meninas"
+       * em 176 px de altura é uma mancha marrom com gente dentro.
+       */
+      readonly tamanho?: 'bandeira' | 'quadro'
+    }
 
 /**
  * Recado que o jogo tem a dizer quando esta carta sai — acertada, errada ou

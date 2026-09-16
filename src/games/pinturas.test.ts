@@ -36,32 +36,48 @@ describe('baralho', () => {
       QUADROS.map((q) => q.id).sort(),
     )
     for (const c of digitadas(7)) {
-      expect(c.pergunta.kind, c.id).toBe('texto')
       expect(c.resposta.tipo, c.id).toBe('texto')
     }
   })
 
   /**
-   * A decisão de escopo, em forma de teste.
+   * A decisão de escopo, em forma de teste — e ela mudou.
    *
-   * O baralho é textual de propósito — ver o cabeçalho de `data/pinturas.ts`.
-   * Se alguém trocar a pergunta por `kind: 'imagem'` sem resolver de onde vem o
-   * arquivo, este teste cai e a pessoa vai ler o porquê antes de seguir.
+   * Este jogo nasceu textual porque não havia reprodução que o projeto pudesse
+   * usar. Agora há, para 33 das 38: `scripts/gen-pinturas.mjs` baixa do Wikimedia
+   * e do acervo do MAC USP e escreve em `public/pinturas/`. As outras cinco
+   * continuam de título, e o teste cobra as duas formas — se alguém apagar a
+   * flag `imagem` de um quadro que tem arquivo, a carta piora em silêncio.
    */
-  it('a pergunta é texto, nunca imagem', () => {
-    for (const c of digitadas(7)) {
-      expect(c.pergunta.kind, c.id).toBe('texto')
-    }
-  })
-
-  it('a pergunta traz o título e o ano, e nada mais', () => {
+  it('mostra o quadro onde há reprodução, e o título onde não há', () => {
     for (const c of digitadas(7)) {
       const quadro = QUADROS.find((q) => `pintura-${q.id}` === c.id)
       if (!quadro) throw new Error(`${c.id} sem quadro`)
-      expect(c.pergunta.kind === 'texto' ? c.pergunta.valor : '', c.id).toBe(
-        `${quadro.obra}, ${quadro.ano}`,
-      )
+
+      if (quadro.imagem) {
+        expect(c.pergunta.kind, c.id).toBe('imagem')
+        expect(c.pergunta.valor, c.id).toContain(`pinturas/${quadro.id}.jpg`)
+        // Genérico como nas bandeiras: o `alt` não pode entregar o que a
+        // imagem existe para cobrar.
+        if (c.pergunta.kind === 'imagem') {
+          expect(c.pergunta.alt, c.id).not.toContain(quadro.pintor)
+          expect(c.pergunta.alt, c.id).not.toContain(quadro.obra)
+        }
+      } else {
+        expect(c.pergunta.kind, c.id).toBe('texto')
+        expect(c.pergunta.valor, c.id).toBe(`${quadro.obra}, ${quadro.ano}`)
+      }
     }
+  })
+
+  it('a maioria do baralho tem imagem, senão o jogo não é o que promete', () => {
+    const comImagem = QUADROS.filter((q) => q.imagem).length
+    expect(comImagem).toBeGreaterThan(QUADROS.length * 0.75)
+    // E as cinco sem imagem são exatamente as que o script registra como
+    // procuradas e não encontradas.
+    expect(QUADROS.filter((q) => !q.imagem).map((q) => q.id).sort()).toEqual(
+      ['antropofagia', 'cafe', 'guerra-e-paz', 'homem-amarelo', 'retirantes'],
+    )
   })
 
   it('a dica pede o pintor, não a data', () => {
@@ -167,10 +183,12 @@ describe('declaração do jogo', () => {
     expect(pinturas.config().teclado).toBe('texto')
   })
 
-  it('o comoJogar avisa que o quadro não aparece', () => {
-    // Prometer a imagem e mostrar o título seria pior que não prometer nada.
+  it('o comoJogar avisa que cinco cartas vêm sem imagem', () => {
+    // O contrário do que este teste cobrava antes, e pelo mesmo princípio:
+    // prometer imagem em todas e mostrar título em cinco seria pior que não
+    // prometer nada.
     const texto = [pinturas.resumo, ...pinturas.comoJogar].join(' ')
-    expect(texto).toMatch(/nome do quadro|não aparece na tela/i)
+    expect(texto).toMatch(/sem imagem/i)
     expect(texto).toMatch(/escreve|escreva|digite/i)
   })
 

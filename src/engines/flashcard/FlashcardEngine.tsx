@@ -1,10 +1,12 @@
 import { useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { MetaNerdometro } from '@/components/MetaNerdometro'
 import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { useAtalhoPular } from '@/core/useAtalhoPular'
 import { desfecho } from '@/core/desfecho'
 import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, duracao } from '@/core/format'
+import type { LinhaNerdometro } from '@/core/nerdometro'
 import type { ConfigFlashcard, Conteudo, JogoFlashcard, ResultadoRun } from '@/core/types'
 import { useFlashcard } from './useFlashcard'
 import type { SessaoFlashcard } from './useFlashcard'
@@ -15,9 +17,25 @@ interface Props {
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
   readonly run: ResultadoDaRun | null
+  /**
+   * A linha deste jogo no Nerdômetro, para a abertura mostrar a meta.
+   *
+   * Opcional porque os testes montam os motores direto, sem o `App`, e ali não
+   * há banco para tirar linha nenhuma — exigir a prop transformaria uma tela
+   * nova em erro de compilação em arquivo de outra gente. Ausente e `null`
+   * querem dizer a mesma coisa: jogo sem meta, e a abertura não inventa uma.
+   */
+  readonly nerdometro?: LinhaNerdometro | null
 }
 
-export function FlashcardEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
+export function FlashcardEngine({
+  jogo,
+  config,
+  onFinalizar,
+  recorde,
+  run,
+  nerdometro = null,
+}: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useFlashcard(config, onFinalizar)
   useAtalhoPular(sessao.estado === 'jogando' && sessao.correcao === null, sessao.pular)
@@ -25,7 +43,13 @@ export function FlashcardEngine({ jogo, config, onFinalizar, recorde, run }: Pro
   return (
     <div ref={area} className="flex flex-col gap-5">
       {sessao.estado === 'pronto' && (
-        <Abertura jogo={jogo} config={config} recorde={recorde} onIniciar={sessao.iniciar} />
+        <Abertura
+          jogo={jogo}
+          config={config}
+          recorde={recorde}
+          nerdometro={nerdometro}
+          onIniciar={sessao.iniciar}
+        />
       )}
 
       {sessao.estado === 'jogando' && sessao.carta && (
@@ -85,11 +109,13 @@ function Abertura({
   jogo,
   config,
   recorde,
+  nerdometro,
   onIniciar,
 }: {
   jogo: JogoFlashcard
   config: ConfigFlashcard
   recorde: number | null
+  nerdometro: LinhaNerdometro | null
   onIniciar: () => void
 }) {
   const morteSubita = config.fim === 'morte-subita'
@@ -111,6 +137,11 @@ function Abertura({
           seu recorde: <span className="text-acento">{comUnidade(recorde, jogo.unidade)}</span>
         </p>
       )}
+
+      {/* Logo abaixo do recorde, e não no topo: a ordem de leitura vira
+          "o que você fez · o alvo · começar". No topo, a meta competiria com a
+          etiqueta que diz a regra da mecânica, que é o que decide a partida. */}
+      <MetaNerdometro linha={nerdometro} />
 
       <Botao onClick={onIniciar}>Começar</Botao>
     </Painel>
@@ -173,7 +204,13 @@ function Render({ conteudo, classe }: { conteudo: Conteudo; classe?: string }) {
         alt={conteudo.alt}
         // `contain` porque as proporções variam: a Suíça é quadrada, o Catar é
         // quase 1:2. Esticar deformaria justamente o que se pede para reconhecer.
-        className="h-32 w-auto max-w-full rounded-lg border border-borda object-contain shadow-lg sm:h-44"
+        //
+        // A altura depende do que a figura é. Quadro pede o dobro de bandeira e
+        // ainda assim fica limitado pela altura da janela (`vh`), porque a carta
+        // divide a tela com o campo de resposta e com o botão de pular.
+        className={`w-auto max-w-full rounded-lg border border-borda object-contain shadow-lg ${
+          conteudo.tamanho === 'quadro' ? 'h-[38vh] max-h-96 sm:h-[42vh]' : 'h-32 sm:h-44'
+        }`}
       />
     )
   }

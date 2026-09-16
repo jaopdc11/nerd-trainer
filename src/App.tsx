@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GameShell } from '@/components/GameShell'
 import { Menu } from '@/components/Menu'
 import { Records } from '@/components/Records'
@@ -7,6 +7,8 @@ import { GeneratorEngine } from '@/engines/generator/GeneratorEngine'
 import { GridEngine } from '@/engines/grid/GridEngine'
 import { SequenceEngine } from '@/engines/sequence/SequenceEngine'
 import type { ResultadoDaRun } from '@/core/desfecho'
+import { calcular } from '@/core/nerdometro'
+import type { LinhaNerdometro } from '@/core/nerdometro'
 import { buscarJogo } from '@/core/registry'
 import { navegar, useRota } from '@/core/route'
 import type { JogoModule, ResultadoRun } from '@/core/types'
@@ -83,7 +85,7 @@ function Rodape() {
 
 function Jogo({ jogoId, modoId }: { jogoId: string; modoId?: string }) {
   const jogo = buscarJogo(jogoId)
-  const { recordeDe, registrarRun } = useRecordes()
+  const { banco, recordeDe, registrarRun } = useRecordes()
   const [ultimaRun, setUltimaRun] = useState<ResultadoDaRun | null>(null)
   // Ref porque `aoFinalizar` precisa enxergar a gravação anterior da MESMA run
   // sem se recriar a cada uma delas.
@@ -128,6 +130,25 @@ function Jogo({ jogoId, modoId }: { jogoId: string; modoId?: string }) {
   // Trocar de jogo não pode herdar o desfecho do jogo anterior.
   useEffect(() => setUltimaRun(null), [])
 
+  /*
+   * A linha do Nerdômetro deste jogo, para a tela de abertura dizer a meta e a
+   * carência de estreia. Sai de `calcular()` inteiro de propósito: `naNota` e
+   * `dominado` são o veredito da mesma função que soma a nota, e refazer a
+   * regra aqui garantiria a divergência no primeiro ajuste de balanceamento.
+   *
+   * `useMemo` porque `calcular()` roda a média uma vez por critério para achar
+   * o potencial de cada um, e isso não tem por que refazer a cada tecla
+   * digitada na partida — só quando o banco muda.
+   *
+   * Em rota de modo devolve `null`: modo grava em chave própria (`jogo::modo`)
+   * e o Nerdômetro lê a chave base, então a meta mostrada ali seria sobre uma
+   * pontuação que a partida em curso não alimenta.
+   */
+  const linhaNerdometro = useMemo<LinhaNerdometro | null>(
+    () => (modoId ? null : (calcular(banco).linhas.find((l) => l.jogoId === jogoId) ?? null)),
+    [banco, jogoId, modoId],
+  )
+
   if (!jogo) {
     // Link velho ou digitado errado: volta ao menu sem sujar o histórico.
     navegar({ nome: 'menu' }, true)
@@ -138,7 +159,13 @@ function Jogo({ jogoId, modoId }: { jogoId: string; modoId?: string }) {
 
   return (
     <GameShell jogo={jogo}>
-      <Mecanica jogo={jogo} onFinalizar={aoFinalizar} recorde={recorde} run={ultimaRun} />
+      <Mecanica
+        jogo={jogo}
+        onFinalizar={aoFinalizar}
+        recorde={recorde}
+        run={ultimaRun}
+        nerdometro={linhaNerdometro}
+      />
     </GameShell>
   )
 }
@@ -148,11 +175,13 @@ function Mecanica({
   onFinalizar,
   recorde,
   run,
+  nerdometro,
 }: {
   jogo: JogoModule
   onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   recorde: number | null
   run: ResultadoDaRun | null
+  nerdometro: LinhaNerdometro | null
 }) {
   switch (jogo.mecanica) {
     case 'sequencia':
@@ -163,6 +192,7 @@ function Mecanica({
           onFinalizar={onFinalizar}
           recorde={recorde}
           run={run}
+          nerdometro={nerdometro}
         />
       )
     case 'gerador':
@@ -173,6 +203,7 @@ function Mecanica({
           onFinalizar={onFinalizar}
           recorde={recorde}
           run={run}
+          nerdometro={nerdometro}
         />
       )
     case 'flashcard':
@@ -183,6 +214,7 @@ function Mecanica({
           onFinalizar={onFinalizar}
           recorde={recorde}
           run={run}
+          nerdometro={nerdometro}
         />
       )
     case 'grade':
@@ -193,6 +225,7 @@ function Mecanica({
           onFinalizar={onFinalizar}
           recorde={recorde}
           run={run}
+          nerdometro={nerdometro}
         />
       )
   }

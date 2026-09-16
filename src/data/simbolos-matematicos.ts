@@ -10,6 +10,17 @@
  * com mais de um caractere — `ℵ₀`, `∃!`, `⌊x⌋`, `⌈x⌉` — continuam sendo texto
  * linear, e o subscrito zero de aleph existe em Unicode (U+2080).
  *
+ * **Nenhuma forma aceita termina em preposição solta.** Foi a regra que faltava,
+ * e ela custou caro: `⊥` aceitava "perpendicular" e "perpendicular a", e o
+ * segundo fazia o primeiro — o nome canônico! — parar de commitar sozinho,
+ * porque `completaSemAmbiguidade` segura o commit enquanto alguma forma da carta
+ * continua a partir do que foi digitado. A preposição final nunca compra nada:
+ * `semArtigos` já a apaga antes de comparar, então quem digita "perpendicular a"
+ * é aceito pela forma "perpendicular" do mesmo jeito. Onde a leitura completa
+ * ensina alguma coisa, ela virou glosa (ver `∝`), que é onde ela devia estar.
+ * Quem acrescentar símbolo aqui quebra `engines/flashcard/autocommit.test.ts`,
+ * que varre o registry inteiro atrás disso.
+ *
  * **A resposta é o nome, e o nome tem sinônimo de verdade.** `∇` é "nabla" para
  * quem aprendeu o desenho, "del" para quem aprendeu em inglês e "gradiente"
  * para quem aprendeu o que ele faz. As três passam. O que *não* se aceita é
@@ -70,21 +81,35 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'pertence',
     glifo: '∈',
     nome: 'pertence',
-    sinonimos: ['pertence a', 'é elemento de', 'elemento de', 'pertinência'],
+    // Saíram "pertence a" e "elemento de", e **quem digita as duas continua
+    // sendo aceito**: `semArtigos` come a preposição final antes de comparar, e
+    // o que sobra é "pertence" e "elemento", que as formas restantes já casam.
+    // Elas só serviam para registrar as chaves "pertencea" e "elementode" — e
+    // chave que ninguém digita, dentro da própria carta, é exatamente o que
+    // mata o auto-commit (ver `autocommit.test.ts` do flashcard). Descartada a
+    // alternativa de mexer em `completaSemAmbiguidade`: ali o prefixo defende a
+    // carta seguinte de receber o resto da digitação.
+    sinonimos: ['é elemento de', 'pertinência'],
     area: 'conjuntos',
   },
   {
     id: 'nao-pertence',
     glifo: '∉',
     nome: 'não pertence',
-    sinonimos: ['não pertence a', 'não é elemento de'],
+    // Mesma faxina do ∈: "não pertence a" era o canônico mais uma preposição
+    // que a normalização já descarta.
+    sinonimos: ['não é elemento de'],
     area: 'conjuntos',
   },
   {
     id: 'contido',
     glifo: '⊂',
     nome: 'está contido',
-    sinonimos: ['contido', 'contido em', 'subconjunto', 'subconjunto de', 'inclusão'],
+    // "subconjunto de" saiu: a preposição final some na normalização, então ela
+    // era a mesma resposta que "subconjunto" com uma chave a mais para travar o
+    // auto-commit. "contido em" fica, porque "em" *não* está na lista de
+    // partículas soltas e a forma é, de fato, uma leitura própria.
+    sinonimos: ['contido', 'contido em', 'subconjunto', 'inclusão'],
     area: 'conjuntos',
     // A ambiguidade é da literatura, não do dataset: parte dos autores reserva
     // ⊂ para subconjunto próprio e escreve ⊆ no caso geral, parte usa ⊂ para
@@ -120,11 +145,19 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     sinonimos: ['conjunto dos reais', 'números reais', 'conjunto dos números reais'],
     area: 'conjuntos',
   },
+  /*
+   * As quatro cartas abaixo ganharam "conjunto dos números X", que só ℝ tinha.
+   * Não é enfeite: a forma longa é a que a escola fala por extenso, e ela não
+   * chegava perto de nenhuma das curtas. "conjunto dos números racionais" dista
+   * 7 caracteres de "conjunto dos racionais", e o perdão de digitação para em 3
+   * — ou seja, quem respondia certo por extenso em ℚ perdia o ponto que ganhava
+   * em ℝ, dependendo só de qual letra tinha caído.
+   */
   {
     id: 'racionais',
     glifo: 'ℚ',
     nome: 'racionais',
-    sinonimos: ['conjunto dos racionais', 'números racionais'],
+    sinonimos: ['conjunto dos racionais', 'números racionais', 'conjunto dos números racionais'],
     area: 'conjuntos',
     glosa: 'Q de quociente',
   },
@@ -132,7 +165,7 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'inteiros',
     glifo: 'ℤ',
     nome: 'inteiros',
-    sinonimos: ['conjunto dos inteiros', 'números inteiros'],
+    sinonimos: ['conjunto dos inteiros', 'números inteiros', 'conjunto dos números inteiros'],
     area: 'conjuntos',
     glosa: 'Z de Zahlen, "número" em alemão',
   },
@@ -140,14 +173,14 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'naturais',
     glifo: 'ℕ',
     nome: 'naturais',
-    sinonimos: ['conjunto dos naturais', 'números naturais'],
+    sinonimos: ['conjunto dos naturais', 'números naturais', 'conjunto dos números naturais'],
     area: 'conjuntos',
   },
   {
     id: 'complexos',
     glifo: 'ℂ',
     nome: 'complexos',
-    sinonimos: ['conjunto dos complexos', 'números complexos'],
+    sinonimos: ['conjunto dos complexos', 'números complexos', 'conjunto dos números complexos'],
     area: 'conjuntos',
   },
   {
@@ -269,8 +302,14 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'derivada-parcial',
     glifo: '∂',
     nome: 'derivada parcial',
+    // "del" sozinho *não* entra, por mais que em inglês se leia assim: ele é
+    // forma aceita do ∇, e duas cartas dividindo a mesma palavra é o começo da
+    // loteria. "d rondo" é o apelido de sala de aula em pt-BR e fica.
     sinonimos: ['parcial', 'del parcial', 'd rondo'],
     area: 'analise',
+    // Faltava glosa justamente na carta em que o nome não ensina: quem responde
+    // "derivada parcial" sem saber o que ela congela responde de ouvido.
+    glosa: '∂f/∂x: deriva em x segurando as outras variáveis como constantes',
   },
   {
     id: 'nabla',
@@ -326,8 +365,12 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'piso',
     glifo: '⌊x⌋',
     nome: 'piso',
+    // "parte inteira" continua aceita porque é como a escola brasileira ensina,
+    // mas é a única forma da carta que está *errada* fora dos positivos — daí a
+    // glosa, que corrige sem tirar o ponto de quem respondeu o que aprendeu.
     sinonimos: ['chão', 'função piso', 'parte inteira', 'floor'],
     area: 'analise',
+    glosa: '⌊−1,5⌋ = −2: parte inteira só é a mesma coisa quando x ≥ 0',
   },
   {
     id: 'teto',
@@ -348,7 +391,13 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'leva-em',
     glifo: '↦',
     nome: 'leva em',
-    sinonimos: ['leva a', 'associa a', 'mapsto', 'seta de aplicação'],
+    // "leva a" virou "leva" e "associa a" virou "associa" — perder a preposição
+    // final não perde resposta nenhuma (quem digitar a frase inteira normaliza
+    // para a mesma chave), e evita registrar "levaa"/"associaa", que só existiam
+    // para travar o commit. Apagar as duas formas em vez de encurtá-las era a
+    // alternativa óbvia e está errada: aí "leva a" passaria a ser recusado, e
+    // 4 caracteres não ganham perdão de digitação nenhum para socorrer.
+    sinonimos: ['leva', 'associa', 'mapsto', 'seta de aplicação'],
     area: 'analise',
     glosa: 'a seta da regra: x ↦ x². A do tipo, f: X → Y, é outra',
   },
@@ -357,9 +406,21 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
   {
     id: 'proporcional',
     glifo: '∝',
-    nome: 'proporcional a',
-    sinonimos: ['proporcional', 'proporcionalidade'],
+    // O canônico era "proporcional a", e essa preposição sozinha derrubava o
+    // auto-commit da carta inteira **mesmo sem sinônimo nenhum**: a forma
+    // registra as duas leituras, "proporcional" e "proporcionala", e a segunda
+    // trava a primeira. O nome agora é a palavra, e a leitura completa está na
+    // glosa, que é onde ela ensina — o gabarito "proporcional a" sozinho não
+    // dizia a quê.
+    nome: 'proporcional',
+    // "proporcionalidade" saiu no mesmo movimento: é o nome do *conceito*, não
+    // a leitura do símbolo (este baralho cobra como se lê o glifo, ver o
+    // cabeçalho), e de quebra era mais um prefixo travando "proporcional".
+    // "diretamente proporcional" entra no lugar porque é o que se fala em
+    // física quando se escreve F ∝ a, e não começa por "proporcional".
+    sinonimos: ['diretamente proporcional'],
     area: 'relacoes',
+    glosa: 'y ∝ x quer dizer y = kx para algum k constante',
   },
   {
     id: 'aproximado',
@@ -372,7 +433,8 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'congruente',
     glifo: '≅',
     nome: 'congruente',
-    sinonimos: ['congruência', 'isomorfo', 'congruente a'],
+    // "congruente a" era o canônico com a preposição que a normalização já come.
+    sinonimos: ['congruência', 'isomorfo'],
     area: 'relacoes',
     glosa: 'em geometria, congruente; em álgebra, isomorfo',
   },
@@ -390,14 +452,22 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'diferente',
     glifo: '≠',
     nome: 'diferente',
-    sinonimos: ['diferente de', 'não igual', 'não é igual a', 'desigual'],
+    // Idem: "diferente de" é o canônico mais "de". "não é igual a" fica, apesar
+    // de também terminar em partícula, porque o artigo do meio muda a chave — a
+    // leitura sem partículas é "nao igual", que não é prefixo de "naoeiguala".
+    sinonimos: ['não igual', 'não é igual a', 'desigual'],
     area: 'relacoes',
   },
   {
     id: 'muito-menor',
     glifo: '≪',
     nome: 'muito menor',
-    sinonimos: ['muito menor que', 'desprezível perto de'],
+    // "desprezível perto de" saiu inteira, e não só a preposição: era descrição
+    // do efeito, não nome do símbolo — ninguém digita isso contra o relógio —, e
+    // terminada em "de" ela ainda sabotava o próprio auto-commit. Encurtar para
+    // "desprezível perto" consertaria a trava e deixaria no lugar uma frase
+    // manca.
+    sinonimos: ['muito menor que'],
     area: 'relacoes',
   },
   {
@@ -418,7 +488,12 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     id: 'perpendicular',
     glifo: '⊥',
     nome: 'perpendicular',
-    sinonimos: ['ortogonal', 'perpendicular a', 'ortogonal a'],
+    // A carta que denunciou o defeito: "perpendicular" é o nome canônico e
+    // mesmo assim exigia Enter, porque "perpendicular a" continuava a partir
+    // dele e `completaSemAmbiguidade` ficava esperando a continuação. As duas
+    // formas com preposição saíram e **nada deixou de ser aceito**: `semArtigos`
+    // transforma "perpendicular a" em "perpendicular" antes de comparar.
+    sinonimos: ['ortogonal'],
     area: 'relacoes',
     glosa: 'em lógica o mesmo símbolo é o absurdo: a proposição sempre falsa',
   },
@@ -428,12 +503,25 @@ export const SIMBOLOS_MATEMATICOS: readonly SimboloMatematico[] = [
     nome: 'soma direta',
     sinonimos: ['ou exclusivo', 'xor', 'adição módulo 2'],
     area: 'relacoes',
+    // ⊕ é o caso em que a carta parecia injusta: a dica diz "relações" e o
+    // glifo tem duas vidas legítimas — álgebra e lógica —, então as duas
+    // respostas pontuam e a glosa conta o porquê em vez de deixar o jogador
+    // achando que chutou.
+    glosa: 'em álgebra é soma direta; em lógica e computação, o ou exclusivo',
   },
   {
     id: 'produto-tensorial',
     glifo: '⊗',
     nome: 'produto tensorial',
+    // "produto tensor" fica, e foi medido antes de decidir: cheguei a tirá-la
+    // por ser prefixo de "produto tensorial", e é justamente o caso em que o
+    // prefixo é sinônimo de verdade e não extensão de ruído. Sem ela a forma
+    // passa a ser **recusada** — são 3 caracteres de distância e o perdão de um
+    // nome de 16 é de 2 —, e trocar um Enter a mais por uma resposta correta
+    // perdida é péssimo negócio. O que ela custa é só o auto-commit de quem
+    // digita exatamente "produto tensor" e para ali.
     sinonimos: ['tensorial', 'produto de Kronecker', 'produto tensor'],
     area: 'relacoes',
+    glosa: 'em física o mesmo círculo marca o vetor entrando na página',
   },
 ]

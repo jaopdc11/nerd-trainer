@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { MetaNerdometro } from '@/components/MetaNerdometro'
 import { Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { desfecho } from '@/core/desfecho'
 import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, duracao, taxa } from '@/core/format'
+import type { LinhaNerdometro } from '@/core/nerdometro'
 import type { ConfigSequencia, JogoSequencia, ResultadoRun } from '@/core/types'
 import { useSequence } from './useSequence'
 import type { Sessao } from './useSequence'
@@ -14,9 +16,25 @@ interface Props {
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
   readonly run: ResultadoDaRun | null
+  /**
+   * A linha deste jogo no Nerdômetro, para a abertura mostrar a meta.
+   *
+   * Opcional porque os testes montam os motores direto, sem o `App`, e ali não
+   * há banco para tirar linha nenhuma — exigir a prop transformaria uma tela
+   * nova em erro de compilação em arquivo de outra gente. Ausente e `null`
+   * querem dizer a mesma coisa: jogo sem meta, e a abertura não inventa uma.
+   */
+  readonly nerdometro?: LinhaNerdometro | null
 }
 
-export function SequenceEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
+export function SequenceEngine({
+  jogo,
+  config,
+  onFinalizar,
+  recorde,
+  run,
+  nerdometro = null,
+}: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useSequence(config, onFinalizar)
   const acabou = sessao.estado === 'morto' || sessao.estado === 'completo'
@@ -25,7 +43,13 @@ export function SequenceEngine({ jogo, config, onFinalizar, recorde, run }: Prop
   if (sessao.estado === 'pronto') {
     return (
       <div ref={area} className="flex flex-col gap-5">
-        <Abertura jogo={jogo} config={config} recorde={recorde} onIniciar={sessao.iniciar} />
+        <Abertura
+          jogo={jogo}
+          config={config}
+          recorde={recorde}
+          nerdometro={nerdometro}
+          onIniciar={sessao.iniciar}
+        />
       </div>
     )
   }
@@ -63,11 +87,13 @@ function Abertura({
   jogo,
   config,
   recorde,
+  nerdometro,
   onIniciar,
 }: {
   jogo: JogoSequencia
   config: ConfigSequencia
   recorde: number | null
+  nerdometro: LinhaNerdometro | null
   onIniciar: () => void
 }) {
   return (
@@ -101,6 +127,12 @@ function Abertura({
           seu recorde: <span className="text-acento">{comUnidade(recorde, jogo.unidade)}</span>
         </p>
       )}
+
+      {/* Logo abaixo do recorde, e não no topo: a ordem de leitura vira
+          "o que você fez · o alvo · começar". Aqui a meta é quase sempre menor
+          que a sequência inteira (π: 100 casas num dataset de milhares), então
+          é justamente a tela onde ela mais falta. */}
+      <MetaNerdometro linha={nerdometro} />
 
       <Botao onClick={onIniciar}>Começar</Botao>
     </Painel>

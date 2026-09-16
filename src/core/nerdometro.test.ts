@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { JOGOS } from './registry'
-import { calcular, CRITERIOS, CURVA } from './nerdometro'
+import { calcular, CRITERIOS, CURVA, ESCALA_DE_PESO } from './nerdometro'
 import type { PassoParaSubir } from './nerdometro'
 import type { Banco, Entrada } from './storage'
 import { CATEGORIAS } from './types'
@@ -79,6 +79,60 @@ describe('nota', () => {
     expect(peso('constantes-fisicas')).toBeGreaterThan(peso('aritmetica'))
   })
 
+  it('nenhum critério inventa um degrau de peso fora da escala', () => {
+    // O compilador já cobra isto — `peso` é tipado por `ESCALA_DE_PESO` —, e o
+    // teste cobra de novo porque o tipo some no primeiro `as` de quem tiver
+    // pressa. O que se quer impedir é o `peso: 2.5` de quem acha que o jogo dele
+    // merece um pouco mais que 2: a partir daí a escala é uma opinião por
+    // arquivo, e a régua da nota muda de forma sem ninguém ter decidido nada.
+    for (const c of CRITERIOS) {
+      expect(ESCALA_DE_PESO, `${c.jogoId} usa peso ${c.peso}, fora da escala`).toContain(c.peso)
+    }
+  })
+
+  it('a escala declarada é a escala em uso — sem degrau morto nem fora de ordem', () => {
+    // Degrau documentado e não usado é documentação mentindo, que é exatamente
+    // o defeito que esta auditoria achou: o comentário anunciava "três degraus,
+    // de 1 a 3" enquanto a tabela já usava cinco valores, de 0,5 a 4.
+    const emUso = new Set<number>(CRITERIOS.map((c) => c.peso))
+    for (const p of ESCALA_DE_PESO) {
+      expect(emUso.has(p), `a escala anuncia o peso ${p} e nenhum critério usa`).toBe(true)
+    }
+    expect([...ESCALA_DE_PESO]).toEqual([...ESCALA_DE_PESO].sort((a, b) => b - a))
+    expect(new Set(ESCALA_DE_PESO).size).toBe(ESCALA_DE_PESO.length)
+  })
+
+  it('o peso é amplificador relativo: a fatia dos grandes é a do banco, não a do catálogo', () => {
+    // A auditoria de setembro de 2026: quando o catálogo foi de 26 para 69
+    // critérios, os quatro grandes repertórios caíram de 31,7% para 12,4% do
+    // peso **somado do catálogo**, e a leitura natural disso é "a nota deixou de
+    // ser sobre os grandes feitos". Ela está errada, e é este teste que diz por
+    // quê: esse total não entra na conta. O denominador é o dos jogos jogados,
+    // então quem joga os grandes continua tendo os grandes como a maior parte da
+    // própria nota — foi o que os 31,2% do banco real do dono mostraram.
+    const maior = Math.max(...CRITERIOS.map((c) => c.peso))
+    const grandes = CRITERIOS.filter((c) => c.peso === maior)
+    const noCatalogo =
+      grandes.reduce((s, c) => s + c.peso, 0) / CRITERIOS.reduce((s, c) => s + c.peso, 0)
+
+    const m = calcular(
+      banco(
+        ...grandes.map((c) => [c.jogoId, 0.8] as [string, number]),
+        ['pi', 0.6],
+        ['aritmetica', 0.6],
+        ['alfabeto-grego', 0.6],
+        ['formulas', 0.6],
+      ),
+    )
+    const naNota = m.linhas.filter((l) => l.naNota)
+    const noBanco =
+      naNota.filter((l) => l.peso === maior).reduce((s, l) => s + l.peso, 0) /
+      naNota.reduce((s, l) => s + l.peso, 0)
+
+    expect(noCatalogo).toBeLessThan(0.2)
+    expect(noBanco).toBeGreaterThan(0.6)
+  })
+
   it('a nota de área também só olha o que foi jogado nela', () => {
     const m = calcular(banco(['pi', 0.6]))
     const seq = m.areas.find((a) => a.area === 'sequencia')
@@ -128,7 +182,13 @@ describe('nota por categoria', () => {
         expect(c.jogados, c.categoria).toBe(0)
       }
       // A cobertura existe mesmo sem nota, senão o mostrador não tem o "de M".
-      expect(c.jogos, c.categoria).toBeGreaterThan(0)
+      //
+      // A exceção é a categoria recém-aberta: ela entra em `CATEGORIAS` antes
+      // dos jogos dela existirem — foi assim que Biológicas nasceu —, e nesse
+      // intervalo o certo é justamente não ter nota nem cobertura, em vez de um
+      // zero que se confunde com desempenho ruim.
+      if (c.jogos === 0) expect(c.nota, c.categoria).toBeNull()
+      else expect(c.jogos, c.categoria).toBeGreaterThan(0)
     }
   })
 
@@ -304,9 +364,69 @@ describe('como subir de faixa', () => {
     expect(m.subirPedeMaisDeUmJogo).toBe(false)
   })
 
-  it('quando nenhum jogo sozinho basta, diz isso em vez de inventar um alvo', () => {
+  /**
+   * O plano de mais de um jogo — o que a auditoria do catálogo crescido mexeu.
+   *
+   * Com 26 critérios, quase sempre existia um jogo que sozinho cruzava a faixa.
+   * Com 69 não existe mais: em perfis sintéticos com mais de vinte jogos
+   * jogados, de 74% a 96% caem no caso "nenhum jogo sozinho chega lá". O que o
+   * medidor fazia então era listar os três de maior `potencial` com o alvo na
+   * meta cheia — no banco real do dono do app, "chegue a 195 em países (faltam
+   * 54)". Agora, quando um punhado de jogos fecha a conta, os três vêm com
+   * alvos proporcionais que somados alcançam mesmo.
+   */
+  describe('quando nenhum jogo sozinho basta', () => {
+    /** Oito critérios na metade da meta: ninguém sozinho sobe, um trio sobe. */
+    const oito = () =>
+      banco(...CRITERIOS.slice(0, 8).map((c) => [c.jogoId, 0.5] as [string, number]))
+
+    it('o plano somado alcança a faixa — e é isso que a tela promete', () => {
+      const base = oito()
+      const m = calcular(base)
+      const minimo = m.proximaFaixa?.faixa.minimo as number
+
+      expect(m.subirPedeMaisDeUmJogo).toBe(true)
+      expect(m.comoSubir.length).toBeGreaterThan(1)
+
+      // Nenhum deles sozinho: se algum sozinho bastasse, o caso seria o outro.
+      for (const p of m.comoSubir) {
+        expect(calcular(cumprindo(base, p)).nota, p.jogoId).toBeLessThan(minimo)
+      }
+
+      // Todos juntos, sim.
+      let todos = base
+      for (const p of m.comoSubir) todos = cumprindo(todos, p)
+      expect(calcular(todos).nota).toBeGreaterThanOrEqual(minimo)
+    })
+
+    it('pede o que falta, não a meta cheia', () => {
+      // O ponto da mudança. "Zere os três" não é um pedido que alguém faz; o
+      // esforço é repartido igual entre os jogos do plano, em fração do que
+      // falta em cada um.
+      const m = calcular(oito())
+      const parciais = m.comoSubir.filter(
+        (p) => p.alvo < (CRITERIOS.find((c) => c.jogoId === p.jogoId)?.meta as number),
+      )
+      expect(parciais.length, 'o plano inteiro está pedindo a meta cheia').toBeGreaterThan(0)
+    })
+
+    it('todo passo pede mais do que o recorde, e nunca mais que a meta', () => {
+      // Um passo com `faltam: 0` seria uma linha na tela mandando fazer o que já
+      // está feito; um alvo acima da meta seria pedir além do que dá nota.
+      const m = calcular(oito())
+      for (const p of m.comoSubir) {
+        const linha = m.linhas.find((l) => l.jogoId === p.jogoId)
+        expect(p.faltam, p.jogoId).toBeGreaterThan(0)
+        expect(p.alvo, p.jogoId).toBeGreaterThan(linha?.recorde as number)
+        expect(p.alvo, p.jogoId).toBeLessThanOrEqual(linha?.meta as number)
+      }
+    })
+  })
+
+  it('quando nem três jogos no máximo bastam, diz isso em vez de inventar um alvo', () => {
     // Catálogo inteiro em 30% da meta: o peso de qualquer jogo é pequeno demais
-    // diante da soma de todos, e nem maxá-lo cruza a faixa.
+    // diante da soma de todos, e nem maxar os três maiores cruza a faixa. Aqui
+    // o alvo volta a ser a meta cheia — é o "mais perto que dá", não promessa.
     const base = banco(...CRITERIOS.map((c) => [c.jogoId, 0.3] as [string, number]))
     const m = calcular(base)
     const minimo = m.proximaFaixa?.faixa.minimo as number
@@ -446,5 +566,51 @@ describe('a estreia não conta', () => {
       )
     }
     expect(m.emExperiencia).toBe(1)
+  })
+})
+
+describe('o catálogo cresceu', () => {
+  /**
+   * O medidor nasceu com 15 jogos, está com 60 e vai a 72 com Biológicas.
+   *
+   * São dois riscos diferentes, e os dois têm teste aqui: a nota mudar de
+   * significado quando o catálogo cresce (a razão de `media` só olhar o que foi
+   * jogado) e `calcular` ficar caro — `alvoParaFaixa` faz busca binária por
+   * jogo, então o custo cresce com o número de critérios vezes o tamanho da
+   * maior meta.
+   */
+  const CHEIO: Banco = {
+    versao: 1,
+    entradas: Object.fromEntries(
+      CRITERIOS.map((c) => [c.jogoId, entrada(Math.round(c.meta * 0.5))]),
+    ),
+  }
+
+  it('entrada de jogo que não é critério não mexe na nota', () => {
+    // É o mesmo invariante de lançar jogo novo, visto do outro lado: o banco de
+    // quem jogou uma versão anterior do app carrega ids que já não existem.
+    const comLixo: Banco = {
+      ...CHEIO,
+      entradas: { ...CHEIO.entradas, 'jogo-que-nao-existe-mais': entrada(999) },
+    }
+    expect(calcular(comLixo).nota).toBe(calcular(CHEIO).nota)
+    expect(calcular(comLixo).total).toBe(CRITERIOS.length)
+  })
+
+  it('a nota com o catálogo inteiro na metade é a metade pela curva, e não outra coisa', () => {
+    // Todos na mesma fração: o peso some da conta (média ponderada de valores
+    // iguais é o próprio valor), então o resultado tem de ser exatamente a
+    // curva aplicada a 0,5 — qualquer desvio aqui é bug de ponderação.
+    expect(calcular(CHEIO).nota).toBe(Math.round(0.5 ** CURVA * 100))
+  })
+
+  it('calcular o medidor inteiro é barato', () => {
+    // Inclui `comoSubir`, que é a parte cara. O limite é generoso de propósito:
+    // o que se quer pegar é a regressão de ordem de grandeza — uma busca linear
+    // no lugar da binária, ou `media` recalculada dentro do laço.
+    const inicio = performance.now()
+    for (let i = 0; i < 20; i++) calcular(CHEIO)
+    const porChamada = (performance.now() - inicio) / 20
+    expect(porChamada, `${porChamada.toFixed(1)} ms por chamada`).toBeLessThan(150)
   })
 })

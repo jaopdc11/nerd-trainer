@@ -1,4 +1,5 @@
 import { analiseDimensional } from '@/games/analise-dimensional'
+import { aminoacidos } from '@/games/aminoacidos'
 import { aritmetica } from '@/games/aritmetica'
 import { balanceamento } from '@/games/balanceamento'
 import { euler, phi, pi, raiz2 } from '@/games/decimais'
@@ -8,9 +9,13 @@ import { biomas } from '@/games/biomas'
 import { capitaisEstados } from '@/games/capitais-estados'
 import { cinematica } from '@/games/cinematica'
 import { circuitos } from '@/games/circuitos'
+import { codigoGenetico } from '@/games/codigo-genetico'
 import { configuracaoEletronica } from '@/games/configuracao-eletronica'
 import { cronologia } from '@/games/cronologia'
+import { erasGeologicas } from '@/games/eras-geologicas'
+import { esqueleto } from '@/games/esqueleto'
 import { espectro } from '@/games/espectro'
+import { divisaoCelular } from '@/games/divisao-celular'
 import { economia } from '@/games/economia'
 import { estados } from '@/games/estados'
 import { estreitos } from '@/games/estreitos'
@@ -27,7 +32,9 @@ import {
 } from '@/games/flashcards'
 import { formulas } from '@/games/formulas'
 import { funcoesOrganicas } from '@/games/funcoes-organicas'
+import { genetica } from '@/games/genetica'
 import { grandezas } from '@/games/grandezas'
+import { hormonios } from '@/games/hormonios'
 import { idiomas } from '@/games/idiomas'
 import { fibonacciJogo, potencias2Jogo, primosJogo } from '@/games/inteiros'
 import { linguagemMatematica } from '@/games/linguagem-matematica'
@@ -36,6 +43,7 @@ import { luas } from '@/games/luas'
 import { latim } from '@/games/latim'
 import { maioresPaises } from '@/games/maiores-paises'
 import { massaMolarJogo } from '@/games/massa-molar'
+import { nomesCientificos } from '@/games/nomes-cientificos'
 import { nomenclaturaAcidos } from '@/games/nomenclatura-acidos'
 import { modeloPadrao } from '@/games/modelo-padrao'
 import { mitologia } from '@/games/mitologia'
@@ -44,17 +52,21 @@ import { numeroDeOxidacao } from '@/games/nox'
 import { ordemDeGrandeza } from '@/games/ordem-grandeza'
 import { ph } from '@/games/ph'
 import { obras } from '@/games/obras'
+import { organelas } from '@/games/organelas'
 import { escolasLiterarias } from '@/games/escolas-literarias'
 import { paises } from '@/games/paises'
 import { periodosBrasil } from '@/games/periodos-brasil'
 import { presidentes } from '@/games/presidentes'
 import { pinturas } from '@/games/pinturas'
 import { simbolosMatematicos } from '@/games/simbolos-matematicos'
+import { relacoesEcologicas } from '@/games/relacoes-ecologicas'
 import { revolucoes } from '@/games/revolucoes'
 import { riosMontanhas } from '@/games/rios-montanhas'
 import { simbolosElementos } from '@/games/simbolos-elementos'
 import { sistemaSolar } from '@/games/sistema-solar'
 import { tabelaPeriodica } from '@/games/tabela-periodica'
+import { taxonomia } from '@/games/taxonomia'
+import { transcricao } from '@/games/transcricao'
 import { CATEGORIAS } from './types'
 import type { Categoria, JogoModule } from './types'
 
@@ -126,6 +138,18 @@ export const JOGOS: readonly JogoModule[] = [
   estreitos,
   moedas,
   idiomas,
+  codigoGenetico,
+  aminoacidos,
+  transcricao,
+  organelas,
+  hormonios,
+  relacoesEcologicas,
+  genetica,
+  taxonomia,
+  nomesCientificos,
+  divisaoCelular,
+  erasGeologicas,
+  esqueleto,
 ]
 
 const porId = new Map(JOGOS.map((j) => [j.id, j]))

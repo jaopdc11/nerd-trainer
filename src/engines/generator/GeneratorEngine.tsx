@@ -1,10 +1,12 @@
 import { useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { MetaNerdometro } from '@/components/MetaNerdometro'
 import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { useAtalhoPular } from '@/core/useAtalhoPular'
 import { desfecho, faltaParaRecorde, marcaAnterior } from '@/core/desfecho'
 import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, cronometro, duracao, taxa } from '@/core/format'
+import type { LinhaNerdometro } from '@/core/nerdometro'
 import type { ConfigGerador, Conteudo, JogoGerador, ResultadoRun } from '@/core/types'
 import { useGenerator } from './useGenerator'
 import type { SessaoGerador } from './useGenerator'
@@ -15,9 +17,25 @@ interface Props {
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
   readonly run: ResultadoDaRun | null
+  /**
+   * A linha deste jogo no Nerdômetro, para a abertura mostrar a meta.
+   *
+   * Opcional porque os testes montam os motores direto, sem o `App`, e ali não
+   * há banco para tirar linha nenhuma — exigir a prop transformaria uma tela
+   * nova em erro de compilação em arquivo de outra gente. Ausente e `null`
+   * querem dizer a mesma coisa: jogo sem meta, e a abertura não inventa uma.
+   */
+  readonly nerdometro?: LinhaNerdometro | null
 }
 
-export function GeneratorEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
+export function GeneratorEngine({
+  jogo,
+  config,
+  onFinalizar,
+  recorde,
+  run,
+  nerdometro = null,
+}: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useGenerator(config, onFinalizar)
   useAtalhoPular(sessao.estado === 'jogando' && sessao.correcao === null, sessao.pular)
@@ -25,7 +43,13 @@ export function GeneratorEngine({ jogo, config, onFinalizar, recorde, run }: Pro
   return (
     <div ref={area} className="flex flex-col gap-5">
       {sessao.estado === 'pronto' && (
-        <Abertura jogo={jogo} config={config} recorde={recorde} onIniciar={sessao.iniciar} />
+        <Abertura
+          jogo={jogo}
+          config={config}
+          recorde={recorde}
+          nerdometro={nerdometro}
+          onIniciar={sessao.iniciar}
+        />
       )}
 
       {sessao.estado === 'jogando' && (
@@ -80,11 +104,13 @@ function Abertura({
   jogo,
   config,
   recorde,
+  nerdometro,
   onIniciar,
 }: {
   jogo: JogoGerador
   config: ConfigGerador
   recorde: number | null
+  nerdometro: LinhaNerdometro | null
   onIniciar: () => void
 }) {
   return (
@@ -107,6 +133,11 @@ function Abertura({
           seu recorde: <span className="text-acento">{comUnidade(recorde, jogo.unidade)}</span>
         </p>
       )}
+
+      {/* Logo abaixo do recorde, e não no topo: a ordem de leitura vira
+          "o que você fez · o alvo · começar". No topo, a meta competiria com as
+          etiquetas do relógio, que são o que decide a partida. */}
+      <MetaNerdometro linha={nerdometro} />
 
       <Botao onClick={onIniciar}>Começar</Botao>
     </Painel>

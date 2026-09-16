@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { chaveDeTexto, distancia, limiteDeErro } from '@/core/answer'
-import { PRESIDENTES, anoDe, exibirMandato } from './presidentes'
+import { FIM_DA_REPUBLICA_VELHA, PRESIDENTES, anoDe, exibirMandato } from './presidentes'
 
 /**
  * O dataset é a única fonte da ordem do jogo, e num jogo de morte súbita um
@@ -14,9 +14,16 @@ describe('dataset', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('começa em Vargas e termina em quem está no cargo', () => {
-    expect(PRESIDENTES[0]?.id).toBe('vargas-1')
+  it('começa na Proclamação e termina em quem está no cargo', () => {
+    expect(PRESIDENTES[0]?.id).toBe('deodoro')
+    expect(PRESIDENTES[0]?.inicio).toBe('1889-11-15')
     expect(PRESIDENTES.at(-1)?.fim).toBeNull()
+  })
+
+  it('são 34 mandatos', () => {
+    // Número escrito à mão de propósito: se a lista mudar de tamanho, que seja
+    // por decisão, e a decisão passa por aqui e pela meta do Nerdômetro.
+    expect(PRESIDENTES).toHaveLength(34)
   })
 
   it('só o último mandato está em aberto', () => {
@@ -29,12 +36,12 @@ describe('dataset', () => {
     for (const p of PRESIDENTES) {
       expect(p.inicio, p.id).toMatch(/^\d{4}-\d{2}-\d{2}$/)
       if (p.fim !== null) expect(p.fim, p.id).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-      expect(anoDe(p.inicio), p.id).toBeGreaterThanOrEqual(1930)
+      expect(anoDe(p.inicio), p.id).toBeGreaterThanOrEqual(1889)
       expect(anoDe(p.inicio), p.id).toBeLessThanOrEqual(2026)
     }
   })
 
-  /** O teste que o recorte de 1930 pede: a ordem declarada tem de ser a ordem real. */
+  /** A ordem declarada tem de ser a ordem real, e quem manda é a data. */
   it('a ordem da lista é a ordem das posses', () => {
     for (let i = 1; i < PRESIDENTES.length; i++) {
       const anterior = PRESIDENTES[i - 1]
@@ -55,8 +62,8 @@ describe('dataset', () => {
 
   /**
    * Dois mandatos nunca se sobrepõem: quando um sai no mesmo dia em que o outro
-   * entra, é sucessão; quando há dias no meio, houve um interino — e ele tem de
-   * estar declarado.
+   * entra, é sucessão; quando há dias no meio, houve junta ou interino — e ele
+   * tem de estar declarado.
    *
    * A equivalência vale nos dois sentidos, e o sentido inverso é o que importa
    * mais: um `noIntervalo` sobrando significa que alguém apagou uma lacuna
@@ -81,13 +88,41 @@ describe('dataset', () => {
     }
   })
 
-  it('as cinco lacunas são as conhecidas', () => {
-    const comLacuna = PRESIDENTES.filter((p) => p.noIntervalo !== undefined).map((p) => p.id)
-    expect(comLacuna).toEqual(['vargas-1', 'cafe-filho', 'janio', 'jango', 'costa-e-silva'])
+  /**
+   * As seis lacunas são as seis exclusões declaradas: as duas juntas e os
+   * quatro que substituíram por pouco tempo. Esta lista é o contrato do
+   * recorte — se ela crescer, entrou buraco novo; se encolher, alguém promoveu
+   * um interino a titular sem dizer.
+   */
+  it('as seis lacunas são as conhecidas', () => {
+    const comLacuna = PRESIDENTES.filter((p) => p.noIntervalo !== undefined)
+    expect(comLacuna.map((p) => p.id)).toEqual([
+      'washington-luis',
+      'vargas-1',
+      'cafe-filho',
+      'janio',
+      'jango',
+      'costa-e-silva',
+    ])
+    // As duas juntas estão nomeadas, e não escondidas atrás de "outros".
+    const juntas = comLacuna.filter((p) => p.noIntervalo?.includes('Junta'))
+    expect(juntas.map((p) => p.id)).toEqual(['washington-luis', 'costa-e-silva'])
+  })
+
+  it('nenhum dos excluídos virou item da lista', () => {
+    const nomes = PRESIDENTES.map((p) => p.nome)
+    for (const fora of ['Carlos Luz', 'Nereu Ramos', 'Ranieri Mazzilli', 'José Linhares', 'Junta']) {
+      expect(nomes, fora).not.toContain(fora)
+    }
   })
 
   it('âncoras conferidas à mão', () => {
     const acha = (id: string) => PRESIDENTES.find((p) => p.id === id)
+    expect(acha('deodoro')?.fim).toBe('1891-11-23')
+    expect(acha('floriano')?.inicio).toBe('1891-11-23')
+    expect(acha('afonso-pena')?.fim).toBe('1909-06-14')
+    expect(acha('delfim-moreira')?.inicio).toBe('1918-11-15')
+    expect(acha('washington-luis')?.fim).toBe('1930-10-24')
     expect(acha('vargas-1')?.inicio).toBe('1930-11-03')
     expect(acha('vargas-2')?.fim).toBe('1954-08-24')
     expect(acha('jk')?.inicio).toBe('1956-01-31')
@@ -102,7 +137,7 @@ describe('dataset', () => {
    * A regra declarada no topo: a unidade é o mandato, e só Vargas e Lula voltam.
    * Se um terceiro nome aparecesse duas vezes, ou seria erro de digitação ou
    * seria uma reeleição virando duas linhas — e as duas coisas quebram a
-   * sequência.
+   * sequência. Deodoro e Hermes da Fonseca são dois homens, não uma repetição.
    */
   it('só Vargas e Lula aparecem duas vezes', () => {
     const contagem = new Map<string, number>()
@@ -128,14 +163,16 @@ describe('dataset', () => {
    * Na sequência não existe trava de vizinhança: a engine compara a resposta
    * com **um** item esperado e mais nada. Então, se dois presidentes ficassem a
    * um erro de digitação de distância, digitar o nome de um poderia valer ponto
-   * no lugar do outro — e o jogo estaria ensinando a ordem errada. Medido, não
-   * temido: a lista passa longe disso, e este teste é o que segura assim.
+   * no lugar do outro — e o jogo estaria ensinando a ordem errada.
+   *
+   * Com a lista de 1889 o risco deixou de ser teórico: entraram dois marechais
+   * Fonseca (Deodoro e Hermes) e um bando de sobrenomes de República Velha.
+   * Medido, não temido.
    */
   it('nenhuma forma aceita encosta na de outro presidente', () => {
-    const formas: { chave: string; id: string; nome: string }[] = []
-    for (const p of PRESIDENTES) {
-      for (const aceita of p.aceitas) formas.push({ chave: chaveDeTexto(aceita), id: p.id, nome: p.nome })
-    }
+    const formas = PRESIDENTES.flatMap((p) =>
+      p.aceitas.map((a) => ({ chave: chaveDeTexto(a), id: p.id, nome: p.nome })),
+    )
 
     for (let i = 0; i < formas.length; i++) {
       for (let j = i + 1; j < formas.length; j++) {
@@ -154,9 +191,27 @@ describe('dataset', () => {
   })
 })
 
+describe('a fronteira da República Velha', () => {
+  /**
+   * É a conta da meta do Nerdômetro e o argumento do jogo inteiro, então é
+   * derivada da lista e testada, nunca escrita à mão.
+   */
+  it('são treze itens, de Deodoro a Washington Luís', () => {
+    expect(FIM_DA_REPUBLICA_VELHA).toBe(13)
+    expect(PRESIDENTES[FIM_DA_REPUBLICA_VELHA - 1]?.id).toBe('washington-luis')
+    expect(PRESIDENTES[FIM_DA_REPUBLICA_VELHA]?.id).toBe('vargas-1')
+  })
+
+  it('e todos eles são anteriores a 1930', () => {
+    for (const p of PRESIDENTES.slice(0, FIM_DA_REPUBLICA_VELHA)) {
+      expect(anoDe(p.inicio), p.id).toBeLessThan(1930)
+    }
+  })
+})
+
 describe('exibição', () => {
   it('mostra o período com travessão, e em aberto quando é o atual', () => {
-    expect(exibirMandato(PRESIDENTES[0] as (typeof PRESIDENTES)[number])).toBe('1930–1945')
+    expect(exibirMandato(PRESIDENTES[0] as (typeof PRESIDENTES)[number])).toBe('1889–1891')
     expect(exibirMandato(PRESIDENTES.at(-1) as (typeof PRESIDENTES)[number])).toBe('2023–')
   })
 

@@ -227,7 +227,10 @@ export const EGITO: readonly Divindade[] = [
   {
     id: 'ra',
     panteao: 'egipcio',
-    dominio: 'deus do Sol',
+    // "Deus do Sol" sozinho encosta em Amon, que virou Amon-Rá justamente por
+    // fusão solar. O barco é o que é só dele: Rá cruza o céu de dia e o mundo
+    // dos mortos de noite, e é dessa travessia que o Egito faz o dia nascer.
+    dominio: 'o deus que atravessa o céu no barco solar',
     nome: 'Rá',
     aceitas: ['Rá', 'Ra', 'Rê', 'Re'],
     acumula: 'Sol, criação e a realeza do faraó',
@@ -235,7 +238,12 @@ export const EGITO: readonly Divindade[] = [
   {
     id: 'osiris',
     panteao: 'egipcio',
-    dominio: 'deus do mundo dos mortos, que julga as almas',
+    // "Que julga as almas" NÃO serve, e o dono do app pegou isto jogando: quem
+    // opera a balança e pesa o coração é Anúbis, e a imagem que todo mundo tem
+    // do julgamento egípcio é a dele. Osíris preside o tribunal, mas o que
+    // identifica Osíris e mais ninguém é a própria história — o rei morto pelo
+    // irmão e remontado por Ísis. O enunciado passou a dizer isso.
+    dominio: 'o rei assassinado pelo irmão e ressuscitado, senhor do além',
     nome: 'Osíris',
     aceitas: ['Osíris', 'Osiris'],
     acumula: 'os mortos, a ressurreição, a agricultura e o julgamento final',

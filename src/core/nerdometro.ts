@@ -6,16 +6,42 @@ import type { Categoria } from './types'
 /**
  * A nota de nerd: 0 a 100.
  *
- * O desenho tem três decisões que importam:
+ * O desenho tem cinco decisões que importam:
  *
  * 1. **Cada jogo tem uma meta, não o total.** Decorar 118 elementos vale 100%,
  *    mas ninguém decora 10 mil casas de π — a meta de π é 100 casas, que já é
  *    coisa de gente obsessiva. Usar o total como denominador faria a nota
  *    depender de quantas casas eu resolvi embutir no dataset, o que é arbitrário.
  * 2. **Conhecimento pesa mais que velocidade.** Saber a tabela periódica diz
- *    mais sobre alguém do que somar rápido. O peso vai de 1 a 3; ver o
- *    comentário de `CRITERIOS`, que explica por que peso e meta não são a mesma
+ *    mais sobre alguém do que somar rápido. A escala está em `ESCALA_DE_PESO`;
+ *    o comentário de `CRITERIOS` explica por que peso e meta não são a mesma
  *    alavanca.
+ *
+ *    Isto foi auditado quando o catálogo saiu de 26 para 69 critérios, e o que
+ *    a auditoria achou vale ficar escrito, porque a próxima pessoa a olhar a
+ *    tabela vai ter a mesma ideia. Os quatro grandes repertórios (tabela
+ *    periódica, países, bandeiras, capitais) caíram de 31,7% para 12,4% do peso
+ *    **somado do catálogo**. Parece a nota ter mudado de assunto sozinha, e não
+ *    é: esse total não aparece na fórmula. O denominador é o dos jogos
+ *    *jogados* (decisão 3), então a fatia que alguém sente é a do próprio
+ *    banco — no banco real do dono do app, os quatro grandes são 31,2% da nota,
+ *    o mesmo de quando havia 26 jogos. Os 12,4% só valem para quem jogou os 69.
+ *
+ *    Subir a escala foi medido e descartado: para devolver os 31,7% *do
+ *    catálogo* hoje, os grandes teriam de ir a peso 13 — bandeiras valendo 26
+ *    aritméticas —, e na leva seguinte de doze jogos o número já estaria errado
+ *    outra vez. Peso é amplificador relativo, não fatia; perseguir uma fatia com
+ *    ele obriga a re-tunar o balanceamento a cada release, que é a mesma
+ *    armadilha da decisão 3 por outro caminho. Normalizar o peso dentro da
+ *    categoria, a outra saída óbvia, é medidamente pior: três dos quatro
+ *    grandes moram em Geografia, então a normalização os espreme para 9,9% e a
+ *    separação entre quem domina os grandes e quem os evita cai de 1,5 ponto
+ *    para 0,0 — a nota deixa de distinguir os dois.
+ *
+ *    O que sobra de verdade é que quatro jogos em sessenta e nove não separam
+ *    muito ninguém, e isso é aritmética, não calibragem. Quem responde por essa
+ *    leitura são a etiqueta de cobertura e as notas por matéria, não a coluna
+ *    de peso.
  * 3. **Só jogo jogado entra na conta.** A nota é o desempenho no que foi
  *    jogado, e jogo intocado fica fora do numerador *e* do denominador.
  *
@@ -31,8 +57,8 @@ import type { Categoria } from './types'
  *    "em N de M jogos", e um "100 · em 1 de 15 jogos" se denuncia sozinho.
  *    Misturar cobertura dentro da conta era justamente o que diluía.
  * 4. **A fração entra numa curva de retorno decrescente.** Ver `CURVA`. Num
- *    medidor que cobre vinte e tantas áreas, tratar 0→50% e 50→100% como o
- *    mesmo esforço pune quem faz o que o app pede.
+ *    medidor que cobre seis matérias e quase setenta jogos, tratar 0→50% e
+ *    50→100% como o mesmo esforço pune quem faz o que o app pede.
  * 5. **A estreia não conta, salvo se já bateu a meta.** Ver
  *    `PARTIDAS_PARA_ENTRAR`. É a contraparte necessária da decisão 3: se jogo
  *    intocado fica fora da conta, abrir um jogo pela primeira vez não pode ser
@@ -54,11 +80,36 @@ export const DESCRICAO_AREA: Record<Area, string> = {
   velocidade: 'contas e derivadas contra o relógio',
 }
 
+/**
+ * Os únicos pesos que um critério pode ter, do mais alto ao mais baixo.
+ *
+ *   4   — o grande feito de repertório: de dezenas a centenas de itens
+ *   3   — repertório duro, ou a compreensão que não se decora
+ *   2   — repertório fechado e decorável, de algumas dezenas de itens
+ *   1   — sequência curta ou cronometrado: treina reflexo, não acervo
+ *   0,5 — somar rápido, a coisa que menos diz sobre repertório
+ *
+ * Existe como constante, e com `peso` tipado por ela, porque o balanceamento
+ * passou a ser escrito por várias mãos ao mesmo tempo — trinta e quatro jogos
+ * entraram num dia só. Com `peso: number` solto, o primeiro autor que achar que
+ * o jogo dele merece "um pouco mais que 2" escreve `peso: 2.5`, e a partir daí
+ * a escala não é escala: é uma opinião por arquivo, e a régua da nota passa a
+ * mudar de forma sem ninguém ter decidido nada. A alternativa descartada foi
+ * confiar na revisão de código — com 69 critérios e crescendo, a revisão lê o
+ * comentário bonito da meta e passa por cima do número do peso.
+ *
+ * Note que a documentação já tinha derrapado: até esta auditoria o comentário
+ * anunciava "três degraus, de 1 a 3" enquanto a tabela usava cinco valores, de
+ * 0,5 a 4. Era exatamente o sintoma que esta constante existe para impedir.
+ */
+export const ESCALA_DE_PESO = [4, 3, 2, 1, 0.5] as const
+export type Peso = (typeof ESCALA_DE_PESO)[number]
+
 export interface Criterio {
   readonly jogoId: string
   /** Pontuação que vale nota cheia naquele jogo. */
   readonly meta: number
-  readonly peso: number
+  readonly peso: Peso
   readonly area: Area
 }
 
@@ -78,10 +129,9 @@ export interface Criterio {
  * países já é coisa de gente muito fora da curva; exigir os 195 para dar nota
  * cheia transformava dois dos jogos maiores em poço sem fundo.
  *
- * A escala de peso tem três degraus:
- *   3 — feito de repertório grande, de dezenas a centenas de itens
- *   2 — repertório de tamanho normal
- *   1 — cronometrado, que treina reflexo e não acervo
+ * Os degraus da escala e o que cada um quer dizer estão em `ESCALA_DE_PESO`,
+ * que é a fonte da verdade e o que o compilador cobra. Daqui para baixo ficam
+ * só os comentários de caso a caso, que é onde mora a discussão de verdade.
  */
 export const CRITERIOS: readonly Criterio[] = [
   // 4 — os grandes feitos de repertório. Saber isto diz muito sobre alguém.
@@ -162,12 +212,39 @@ export const CRITERIOS: readonly Criterio[] = [
   // 33 de 39: as 12 cartas de pista saem de graça para quem sabe os seis biomas,
   // então o trabalho está nas 27 UFs — e 33 perdoa justamente as divididas.
   { jogoId: 'biomas', meta: 33, peso: 2, area: 'memoria' },
+  // Morte súbita: o placar é a sequência, e 30 sorteios entre 64 praticamente
+  // garantem passar por UGA, AUA e pelas três paradas.
+  { jogoId: 'codigo-genetico', meta: 30, peso: 2, area: 'memoria' },
+  // Meta calculada e não estimada: quem sabe as 20 siglas e chuta a inicial nas
+  // letras chega a 31 de 40 sem saber um código de uma letra sequer. 35 exige
+  // pelo menos quatro das nove arbitrárias.
+  { jogoId: 'aminoacidos', meta: 35, peso: 2, area: 'memoria' },
+  // 19 de 21: sem cauda obscura, mas de escolha, e as cartas que decidem
+  // (peroxissomo, envoltório nuclear) só se acertam sabendo a vizinha.
+  { jogoId: 'organelas', meta: 19, peso: 2, area: 'memoria' },
+  // 17 de 20: a direção de cada carta é sorteada, então duas partidas nunca são
+  // a mesma prova — e a cauda é ACTH, aldosterona e o par que vem do hipotálamo.
+  { jogoId: 'hormonios', meta: 17, peso: 2, area: 'memoria' },
+  // 80% do baralho, a mesma proporção das escolas literárias: com quatro opções
+  // o chute cego já entrega uns 11, e as 45 cobrariam acerto na meia-dúzia que a
+  // própria literatura escolar disputa (craca, chupim, formiga-e-pulgão).
+  { jogoId: 'relacoes-ecologicas', meta: 36, peso: 2, area: 'memoria' },
+  // 44 de 53, e a conta é sobre as armadilhas: as 9 cartas sem pegadinha saem de
+  // graça, então a nota cheia exige 35 das 44 que enganam.
+  { jogoId: 'taxonomia', meta: 44, peso: 2, area: 'memoria' },
+  // Peso 2 como o irmão, e não 1: a sobreposição entre os dois é de sete
+  // espécies em quarenta, não o mesmo acervo medido duas vezes — que foi o caso
+  // de `simbolos-elementos` contra a tabela periódica, onde os 118 são os mesmos.
+  { jogoId: 'nomes-cientificos', meta: 32, peso: 2, area: 'memoria' },
   // 150, e não 130: cinco palavras (inglês, francês, árabe, espanhol, português)
   // já cobrem 142 das 195 cartas, então meta baixa daria nota cheia a quem não
   // encara Suriname, Butão, Eritreia.
   { jogoId: 'idiomas', meta: 150, peso: 2, area: 'memoria' },
   // 20 de 30: a cauda (Palk, Kerch, Öresund, Davis) é de especialista.
   { jogoId: 'estreitos', meta: 20, peso: 2, area: 'memoria' },
+  // 26 de 32: a lista é de escola e umas vinte saem quase de graça. A cauda é o
+  // trio do quadril — ílio, ísquio e púbis, que a maioria chama de "bacia".
+  { jogoId: 'esqueleto', meta: 26, peso: 2, area: 'memoria' },
   { jogoId: 'funcoes-organicas', meta: 36, peso: 2, area: 'memoria' },
   // 40 de 49: a cauda de laboratório (tiocianato, oxalato, plumboso) não é o
   // que separa quem sabe a tabela de íons de quem não sabe.
@@ -193,9 +270,17 @@ export const CRITERIOS: readonly Criterio[] = [
   // 16 obriga a atravessar a virada dos rios para as montanhas: meta ≤ 10 daria
   // nota cheia a quem nunca chegou ao segundo trecho.
   { jogoId: 'rios-montanhas', meta: 16, peso: 1, area: 'sequencia' },
-  // A lista inteira: a dificuldade é toda no começo (Vargas, Dutra, Vargas, Café
-  // Filho, os cinco generais), e quem chega em Sarney termina de olho fechado.
-  { jogoId: 'presidentes', meta: 21, peso: 2, area: 'sequencia' },
+  // 20 porque 18 é só a porta da segunda divisão: meta menor daria nota cheia a
+  // quem nunca recitou uma fase de meiose II, que é o conteúdo do jogo.
+  { jogoId: 'divisao-celular', meta: 20, peso: 1, area: 'sequencia' },
+  // 16 = os quatro éons mais os doze períodos, a escala inteira no nível que o
+  // jogo cobra. As duas épocas finais são zoom e ninguém que chegou lá erra.
+  { jogoId: 'eras-geologicas', meta: 16, peso: 1, area: 'sequencia' },
+  // 17 de 34, e a conta é uma propriedade da lista: a dificuldade está toda nos
+  // treze primeiros itens, e 17 é a metade, que cai em Café Filho. Quem chega ali
+  // recitou a República Velha inteira e passou pelo Vargas repetido. De JK em
+  // diante é o que a escola e o noticiário já deram.
+  { jogoId: 'presidentes', meta: 17, peso: 2, area: 'sequencia' },
   // Idem: a lista É a periodização, e dar nota cheia por 8 de 11 premiaria quem
   // não sabe onde entra o Reino Unido — que é o item que o jogo existe para ensinar.
   { jogoId: 'periodos-brasil', meta: 11, peso: 1, area: 'sequencia' },
@@ -216,6 +301,12 @@ export const CRITERIOS: readonly Criterio[] = [
   { jogoId: 'cinematica', meta: 20, peso: 1, area: 'velocidade' },
   // 25: dois dados e uma seta, mesma batida e mesmo bônus dos irmãos.
   { jogoId: 'circuitos', meta: 25, peso: 1, area: 'velocidade' },
+  // 20 pela mesma conta do balanceamento: quatro fitas de seis caracteres não
+  // se leem na batida de "nox do S em H₂SO₄".
+  { jogoId: 'transcricao', meta: 20, peso: 1, area: 'velocidade' },
+  // 20 pelo mesmo motivo: no nível 2 o item é uma frase com dois genitores e um
+  // recorte da prole, que não se lê na batida de "nox do S em H₂SO₄".
+  { jogoId: 'genetica', meta: 20, peso: 1, area: 'velocidade' },
   { jogoId: 'massa-molar', meta: 25, peso: 1, area: 'velocidade' },
   { jogoId: 'cronologia', meta: 30, peso: 1, area: 'velocidade' },
 
@@ -330,13 +421,18 @@ export interface Nerdometro {
   /** A próxima faixa, e quantos pontos faltam. `null` no topo. */
   readonly proximaFaixa: { readonly faixa: Faixa; readonly falta: number } | null
   /**
-   * O que fazer para subir de faixa: até 3 jogos com a pontuação exata que,
-   * **sozinha**, levaria a nota ao mínimo da próxima faixa. Vazio no topo.
+   * O que fazer para subir de faixa, em até 3 jogos. Vazio no topo.
+   *
+   * Com `subirPedeMaisDeUmJogo` em `false`, cada linha alcança a faixa
+   * **sozinha** e a tela oferece as três como alternativas. Com ele em `true`,
+   * as linhas são um plano: ou os alvos **somados** alcançam a faixa, ou nem
+   * levando os três ao máximo dá e o que está ali é o que mais aproxima.
    */
   readonly comoSubir: readonly PassoParaSubir[]
   /**
-   * Nenhum jogo sozinho alcança a próxima faixa — `comoSubir` traz então os que
-   * mais aproximam, e a tela precisa dizer que o caminho passa por mais de um.
+   * Nenhum jogo sozinho alcança a próxima faixa, e a tela precisa dizer que o
+   * caminho passa por mais de um. O caso comum desde que o catálogo passou de
+   * sessenta critérios: a fatia de um jogo no denominador encolheu.
    */
   readonly subirPedeMaisDeUmJogo: boolean
   readonly linhas: readonly LinhaNerdometro[]
@@ -373,14 +469,25 @@ export interface Nerdometro {
  * A fração crua é linear, e linear está errado aqui: ir de 0 a 40 países leva
  * uma tarde, de 140 a 150 leva semanas. A escala linear diz que o primeiro
  * trecho vale 40 e o segundo vale 10, quando o esforço é o contrário. Num
- * medidor que cobre 18 áreas, isso pune exatamente quem faz o que o app pede —
- * saber de tudo um pouco — e premia quem mói um jogo só.
+ * medidor que cobre seis matérias, isso pune exatamente quem faz o que o app
+ * pede — saber de tudo um pouco — e premia quem mói um jogo só.
  *
  * `0.65` foi escolhido contra dados reais de uma sessão de um dia: 66% da
  * tabela periódica passa a valer 76, e 29% dos países passa a valer 44. Os dois
  * extremos continuam honestos — 100% continua 100%, e uma partida abandonada no
  * primeiro card (1 de 120) sobe de 1% para 4%, ou seja, a curva não resgata
  * lixo.
+ *
+ * Reconferido com 69 critérios: o expoente age dentro de cada jogo, antes da
+ * ponderação, então o tamanho do catálogo não o afeta — o que muda com o
+ * catálogo é o denominador, e disso cuida a decisão 3. O que a curva faz com as
+ * faixas continua o prometido: `Tem fórmula tatuada` (95) pede 92% de média das
+ * metas jogadas, `Perigo em jantar de família` (85) pede 78%, `Enciclopédia
+ * ambulante` (70) pede 58% e `Nerd de carteirinha` (55) pede 40%. De `Estudante
+ * aplicado` para cima as faixas vizinhas ficam de 12 a 20 pontos de fração umas
+ * das outras — ou seja, ainda discriminam. As duas últimas (`Curioso` e `Só
+ * passando`) são estreitas de propósito: as duas descrevem quem não pontuou
+ * quase nada, e ali a diferença é entre nada e quase nada mesmo.
  */
 export const CURVA = 0.65
 
@@ -392,9 +499,14 @@ const comCurva = (fracao: number) => fracao ** CURVA
  * O problema que isto resolve: **experimentar um jogo derrubava a nota**. Abrir
  * a notação científica, fazer 3 de 25 na primeira partida e ver a nota geral
  * cair um ponto e a da área cair quinze não é medição, é punição por
- * curiosidade. E o catálogo só cresce: com 60 jogos, a maior parte do tempo a
+ * curiosidade. E o catálogo só cresce: com 69 jogos, a maior parte do tempo a
  * nota seria o retrato de jogos recém-abertos, não do que a pessoa sabe. Uma
  * partida é amostra, não desempenho.
+ *
+ * Medido no banco real do dono do app, e é por isso que a carência ficou: abrir
+ * doze jogos novos e fazer 12% da meta em cada um deixa a nota em 86, exatamente
+ * onde estava. Sem a carência, a mesma tarde de curiosidade levaria a nota a 59
+ * — vinte e sete pontos de castigo por ter experimentado o catálogo novo.
  *
  * A exceção existe porque a regra crua produzia um absurdo pior que o problema:
  * fechar os 24 do alfabeto grego de primeira não contava ponto nenhum. Quem
@@ -539,6 +651,137 @@ function passo(linha: LinhaNerdometro, alvo: number): PassoParaSubir {
   }
 }
 
+/**
+ * As mesmas linhas, com alguns jogos fingidos numa pontuação — a base do plano
+ * de mais de um jogo.
+ *
+ * A carência é dispensada nos fingidos pela mesma razão que `mediaCom` já a
+ * dispensa: o alvo é sempre maior que o recorde, então alcançá-lo custa uma
+ * partida, e é ela que matricula o jogo. Fingir sem mexer em `partidas`
+ * produziria um plano que o próprio medidor não confirmaria depois — o jogo
+ * subiria de pontuação e continuaria fora da conta.
+ */
+function comoSe(
+  linhas: readonly LinhaNerdometro[],
+  alvos: ReadonlyMap<string, number>,
+): readonly LinhaNerdometro[] {
+  if (alvos.size === 0) return linhas
+  return linhas.map((l) => {
+    const alvo = alvos.get(l.jogoId)
+    if (alvo === undefined) return l
+    return {
+      ...l,
+      recorde: alvo,
+      fracao: Math.min(1, alvo / l.meta),
+      partidas: Math.max(l.partidas, PARTIDAS_PARA_ENTRAR),
+      dominado: alvo >= l.meta,
+      naNota: true,
+    }
+  })
+}
+
+/**
+ * O plano de mais de um jogo: até `MAX_COMO_SUBIR` jogos com a pontuação que,
+ * **somada**, alcança a faixa. `null` se nem levando os três ao máximo dá.
+ *
+ * Isto existe porque o catálogo cresceu e quebrou a recomendação sem quebrar
+ * nenhum teste. Medido: em perfis sintéticos com mais de vinte jogos jogados,
+ * entre 74% e 96% caem no caso "nenhum jogo sozinho chega lá" — a alavanca de
+ * um jogo só encolheu junto com a fatia dele no denominador. O caminho antigo
+ * respondia a isso listando os três de maior `potencial` com o alvo na meta
+ * cheia, que é o conselho que o comentário de `prioridade` logo acima chama de
+ * desistência disfarçada: o dono do app via "chegue a 195 em países (faltam
+ * 54)". Agora, quando um punhado de jogos fecha a conta, ele vira um plano de
+ * verdade, com alvos proporcionais e alcançáveis.
+ *
+ * São dois passos:
+ *
+ * 1. **Quem entra no plano.** Aqui — e só aqui — `prioridade` sozinha não
+ *    serve. Quando um jogo fecha a conta inteira, o quanto ele rende é
+ *    irrelevante e só importa se será feito; num plano de três vagas, gastar
+ *    uma vaga num jogo de peso 0,5 muito jogado torra a vaga. Por isso a escolha
+ *    é `ganho × prioridade`: render nota **e** ser jogável. A ordem é gulosa e
+ *    resimula a cada escolha, porque o ganho de um jogo depende de quem já está
+ *    no plano (todos entram no denominador).
+ * 2. **Quanto pedir de cada um.** Não a meta cheia: busca binária no *esforço
+ *    comum*, a mesma fatia do que falta em cada jogo do plano. "Suba um pouco em
+ *    cada um destes três" é um pedido que alguém faz; "zere os três" não é. A
+ *    alternativa descartada foi maxar os dois primeiros e minimizar só o
+ *    último, que dá o mesmo resultado numérico cobrando um preço absurdo dos
+ *    dois primeiros.
+ *
+ * A segunda tentativa de seleção, por `ganho` puro, é a rede de segurança: se a
+ * escolha jogável não alcança a faixa nem no máximo, ainda pode existir um trio
+ * pesado que alcança, e prometer o alcançável vale mais que prometer o cômodo.
+ */
+function planoConjunto(
+  linhas: readonly LinhaNerdometro[],
+  candidatos: readonly LinhaNerdometro[],
+  minimo: number,
+): readonly PassoParaSubir[] | null {
+  const valores: ((linha: LinhaNerdometro, ganho: number) => number)[] = [
+    (linha, ganho) => ganho * prioridade(linha, linha.meta),
+    (_linha, ganho) => ganho,
+  ]
+
+  for (const valor of valores) {
+    const escolhidos: LinhaNerdometro[] = []
+    const noMaximo = new Map<string, number>()
+
+    while (escolhidos.length < MAX_COMO_SUBIR) {
+      const atual = comoSe(linhas, noMaximo)
+      const notaAtual = media(atual)
+      let melhor: { linha: LinhaNerdometro; valor: number } | null = null
+
+      for (const linha of candidatos) {
+        if (noMaximo.has(linha.jogoId)) continue
+        const ganho = media(atual, linha.jogoId) - notaAtual
+        if (ganho <= 0) continue
+        const v = valor(linha, ganho)
+        if (melhor === null || v > melhor.valor) melhor = { linha, valor: v }
+      }
+
+      if (melhor === null) break
+      escolhidos.push(melhor.linha)
+      noMaximo.set(melhor.linha.jogoId, melhor.linha.meta)
+    }
+
+    // Um jogo só não é plano — esse caso já foi resolvido por `alvoParaFaixa`.
+    if (escolhidos.length < 2) continue
+    if (Math.round(media(comoSe(linhas, noMaximo))) < minimo) continue
+
+    // O menor esforço comum que ainda chega. Em centésimos do que falta, porque
+    // os alvos são inteiros e mais resolução do que isso não muda pontuação
+    // nenhuma. `Math.ceil` garante `alvo > recorde`: um passo com `faltam: 0`
+    // seria uma linha na tela mandando fazer o que já está feito.
+    const comEsforco = (centesimos: number): ReadonlyMap<string, number> =>
+      new Map<string, number>(
+        escolhidos.map((l): [string, number] => [
+          l.jogoId,
+          l.recorde + Math.ceil((centesimos / 100) * (l.meta - l.recorde)),
+        ]),
+      )
+
+    let baixo = 1
+    let alto = 100
+    while (baixo < alto) {
+      const meio = Math.floor((baixo + alto) / 2)
+      if (Math.round(media(comoSe(linhas, comEsforco(meio)))) >= minimo) alto = meio
+      else baixo = meio + 1
+    }
+
+    const alvos = comEsforco(baixo)
+    // Na tela, o mais jogado primeiro: aqui os três são uma lista de tarefas e
+    // não alternativas, então a ordem não escolhe nada — ela só decide por onde
+    // a pessoa começa, e começar pelo jogo conhecido é o que faz começar.
+    return escolhidos
+      .map((l) => passo(l, alvos.get(l.jogoId) as number))
+      .sort((a, b) => b.partidas - a.partidas)
+  }
+
+  return null
+}
+
 function montarComoSubir(
   linhas: readonly LinhaNerdometro[],
   minimo: number | null,
@@ -563,10 +806,16 @@ function montarComoSubir(
     }
   }
 
-  // Ninguém sozinho chega lá. Em vez de inventar um alvo que não cumpre o que
-  // promete, devolvemos os que mais aproximam — aqui o critério volta a ser o
-  // rendimento puro (`potencial`), porque a pergunta mudou de "o que você faria"
-  // para "por onde o caminho passa".
+  // Ninguém sozinho chega lá — o caso comum agora que são 69 critérios. Se um
+  // punhado de jogos fecha a conta, a recomendação continua sendo uma promessa
+  // cumprível, só que repartida. Ver `planoConjunto`.
+  const plano = planoConjunto(linhas, candidatos, minimo)
+  if (plano !== null) return { comoSubir: plano, subirPedeMaisDeUmJogo: true }
+
+  // Nem três jogos no máximo alcançam. Em vez de inventar um alvo que não cumpre
+  // o que promete, devolvemos os que mais aproximam — aqui o critério volta a ser
+  // o rendimento puro (`potencial`), porque a pergunta mudou de "o que você
+  // faria" para "por onde o caminho passa".
   return {
     comoSubir: [...candidatos]
       .sort((a, b) => b.potencial - a.potencial)

@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
+import { MetaNerdometro } from '@/components/MetaNerdometro'
 import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
 import { desfecho } from '@/core/desfecho'
 import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, cronometro, duracao } from '@/core/format'
+import type { LinhaNerdometro } from '@/core/nerdometro'
 import type { CelulaGrade, ConfigGrade, JogoGrade, ResultadoRun } from '@/core/types'
 import { useGrid } from './useGrid'
 import type { SessaoGrade } from './useGrid'
@@ -14,6 +16,15 @@ interface Props {
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
   readonly run: ResultadoDaRun | null
+  /**
+   * A linha deste jogo no Nerdômetro, para a abertura mostrar a meta.
+   *
+   * Opcional porque os testes montam os motores direto, sem o `App`, e ali não
+   * há banco para tirar linha nenhuma — exigir a prop transformaria uma tela
+   * nova em erro de compilação em arquivo de outra gente. Ausente e `null`
+   * querem dizer a mesma coisa: jogo sem meta, e a abertura não inventa uma.
+   */
+  readonly nerdometro?: LinhaNerdometro | null
 }
 
 /**
@@ -22,6 +33,21 @@ interface Props {
  * impede que, numa tela larga e baixa, as 10 linhas estourem a altura da janela.
  */
 const TETO_LINHA = '4.6vh'
+
+/**
+ * Teto por célula numa grade estreita.
+ *
+ * O `TETO_LINHA` foi calibrado para as 18 colunas da tabela periódica, onde a
+ * célula é um quadradinho com símbolo de duas letras. Com 5 colunas — o quadro
+ * do Modelo Padrão — a mesma conta dá uma grade de 230 px no desktop, e aí
+ * "strange" e "neutrino do múon" vazam por cima do vizinho. Poucas colunas
+ * podem ter célula maior porque a grade inteira continua estreita: 5 × 9 rem
+ * ainda cabe em qualquer tela, e é a largura que o nome de uma partícula pede.
+ */
+const TETO_LINHA_ESTREITA = '9rem'
+
+/** Acima disto a grade é larga e manda a régua da periódica. */
+const COLUNAS_ESTREITAS = 8
 
 /** Cor por bloco da tabela. Nunca é a única informação: o texto também muda. */
 const COR_BLOCO: Record<string, string> = {
@@ -38,7 +64,14 @@ const COR_BLOCO: Record<string, string> = {
   escalar: 'bg-[oklch(0.36_0.09_300)] text-[oklch(0.94_0.06_300)] border-[oklch(0.48_0.11_300)]',
 }
 
-export function GridEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
+export function GridEngine({
+  jogo,
+  config,
+  onFinalizar,
+  recorde,
+  run,
+  nerdometro = null,
+}: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useGrid(config, onFinalizar)
   const total = sessao.acertos + sessao.restantes
@@ -71,9 +104,14 @@ export function GridEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
       )}
 
       {sessao.estado === 'pronto' && (
-        <Botao onClick={sessao.iniciar} className="self-start">
-          Começar
-        </Botao>
+        // A grade já ocupa a tela toda e não há painel de abertura aqui — a meta
+        // entra encostada no botão, que é o último ponto para onde o olho vai
+        // antes de começar. Acima da grade ela ficaria fora do campo de visão
+        // justamente em quem rolou até o fim do mapa para clicar em Começar.
+        <div className="flex flex-col items-start gap-3">
+          <MetaNerdometro linha={nerdometro} />
+          <Botao onClick={sessao.iniciar}>Começar</Botao>
+        </div>
       )}
 
       {sessao.estado === 'jogando' && (
@@ -147,14 +185,18 @@ function Grade({ sessao, config }: { sessao: SessaoGrade; config: ConfigGrade })
     // lugar onde vale a troca.
     <div className="max-sm:-mx-4 max-sm:overflow-x-auto max-sm:px-4">
       <ul
-        className="mx-auto grid gap-[clamp(1px,0.2vw,4px)] max-sm:min-w-[34rem]"
+        className={`mx-auto grid gap-[clamp(1px,0.2vw,4px)] ${
+          config.colunas <= COLUNAS_ESTREITAS ? '' : 'max-sm:min-w-[34rem]'
+        }`}
         style={{
           // `minmax(0, 1fr)` é o que elimina a rolagem: a célula nunca pede mais
           // largura do que o container tem. O `maxWidth` limita o outro eixo —
           // 18 colunas de células quadradas altas demais estourariam a altura da
           // tela, e foi isso que criou a barra de rolagem antes.
           gridTemplateColumns: `repeat(${config.colunas}, minmax(0, 1fr))`,
-          maxWidth: `calc(${config.colunas} * ${TETO_LINHA})`,
+          maxWidth: `calc(${config.colunas} * ${
+            config.colunas <= COLUNAS_ESTREITAS ? TETO_LINHA_ESTREITA : TETO_LINHA
+          })`,
         }}
       >
         {config.celulas.map((celula) => (

@@ -1,56 +1,60 @@
 /**
- * Os presidentes do Brasil, em ordem, de 1930 até hoje.
+ * Os presidentes do Brasil, em ordem, da Proclamação da República até hoje.
  *
- * **O recorte, que é a decisão inteira deste arquivo.**
+ * **O recorte: 1889, a lista inteira.** A versão anterior começava em 1930, e o
+ * argumento era bom — a República Velha põe os nomes mais difíceis logo no
+ * começo, e uma escada de morte súbita que começa no teto mata o jogador no
+ * quarto item, antes de ele chegar a qualquer coisa que saiba. Perdeu para um
+ * argumento melhor: quem abre um jogo chamado "Presidentes do Brasil" e digita
+ * "Deodoro da Fonseca" está certo, e levar errado por causa de um recorte que
+ * ninguém anunciou é o app contrariando o próprio nome. Um jogo pode ser duro;
+ * não pode recusar a resposta certa.
  *
- * Da Proclamação da República até hoje passaram pelo cargo mais de quarenta
- * pessoas, e a lista completa é indefensável num jogo de sequência com morte
- * súbita por três motivos somados:
+ * O custo do recorte maior não some — ele muda de lugar. Vai para três
+ * parâmetros do jogo, e cada um está justificado em `games/presidentes.ts`: a
+ * **meta** do Nerdômetro, que não pode mais ser a lista inteira; a **revisão
+ * pós-morte**, que é o que o jogador leva para casa quando morre no item 3; e o
+ * **agrupamento** da fita.
  *
- * 1. A República Velha põe os nomes mais difíceis **no começo**. Quem não sabe
- *    que depois de Campos Sales vem Rodrigues Alves morre no quarto item, e o
- *    jogo acaba antes de chegar em qualquer coisa que a pessoa saiba. Uma
- *    escada de morte súbita tem de subir; essa começaria no teto.
- * 2. Entram juntas governativas (a de 1930 e a Militar de 1969), que não são
- *    *um* nome e não têm resposta curta.
- * 3. Entram presidentes de dias: Carlos Luz governou três, Ranieri Mazzilli
- *    duas vezes por menos de duas semanas cada. Errar por não saber que houve
- *    um interino de três dias entre Café Filho e Nereu Ramos não mede
- *    conhecimento de história, mede conhecimento de nota de rodapé.
+ * **Quem entra: os titulares.** Eleitos, direta ou indiretamente, e os vices que
+ * sucederam **em definitivo**. Ficam de fora as duas juntas governativas (a de
+ * 1930 e a Militar de 1969) e quem exerceu a presidência em substituição
+ * temporária: José Linhares, Carlos Luz, Nereu Ramos e Ranieri Mazzilli.
  *
- * O outro extremo — começar na Nova República (1985) — dá nove mandatos, o que
- * não é uma escada, é um degrau: quem acompanha jornal recita a lista inteira
- * sem ter estudado nada.
+ * Isso foi decidido de frente, e contra a alternativa de incluí-los:
  *
- * O corte adotado é **1930**, e ele não é conveniência: é a fronteira que a
- * própria historiografia usa. Antes, o cargo girava entre oligarquias estaduais
- * numa alternância que só especialista recita; de Vargas em diante, cada
- * presidente é alguém de quem a escola, o noticiário e a mesa de jantar falam.
- * Dá 21 mandatos — longo o bastante para ser uma escada de verdade e curto o
- * bastante para caber na régua do projeto, a de que meta é o que dá para
- * decorar de verdade.
+ * - **Junta não é um nome.** "Junta Governativa Provisória" são três militares
+ *   e nenhuma resposta curta; aceitar "junta" seria aceitar um marcador de
+ *   lugar como se fosse conhecimento, e exigir os três sobrenomes transformaria
+ *   um item da lista num exercício de ortografia.
+ * - **A junta de 1930 cairia no pior lugar possível da fita**: logo depois de
+ *   Washington Luís, ou seja, no exato ponto em que o jogador acabou de pagar o
+ *   preço mais alto da partida recitando os treze da República Velha. Morrer
+ *   ali, na burocracia, depois daquilo, é perder para o regulamento.
+ * - **Mazzilli apareceria duas vezes e não seguidas** (1961 e 1964, com Jango
+ *   no meio). Lembrar disso não é saber história, é ter decorado a nota de
+ *   rodapé.
  *
- * **Quem entra.** Os titulares: eleitos (direta ou indiretamente) e os vices
- * que os sucederam **em definitivo**. Ficam de fora as juntas e quem exerceu a
- * presidência em substituição temporária — José Linhares, Carlos Luz, Nereu
- * Ramos e Mazzilli. A regra tem de estar no `comoJogar`, senão o jogador erra
- * por não saber a regra do jogo, não por não saber história. Cada ausência fica
- * registrada em `noIntervalo`, e o teste cobra que toda lacuna entre um mandato
- * e o seguinte tenha esse registro: a lista é curta por decisão declarada, não
- * por esquecimento.
+ * Não é a única lista defensável — há lista oficial que conta todos eles —, e é
+ * justamente por isso que a regra está escrita no `comoJogar` do jogo, e não só
+ * aqui. Cada ausência fica registrada em `noIntervalo`, e o teste cobra que
+ * toda lacuna entre um mandato e o seguinte tenha esse registro: a lista é mais
+ * curta por decisão declarada, nunca por esquecimento.
  *
  * **A unidade é o mandato, não a pessoa.** Vargas aparece duas vezes (1930 e
  * 1951) e Lula também (2003 e 2023), porque são duas passagens separadas pelo
- * cargo, e a segunda de Vargas é outro país. Já FHC, Lula 2003 e Dilma contam
- * uma vez cada por período contínuo, ainda que sejam dois mandatos seguidos:
- * o que a sequência pede é quem veio depois de quem, e a reeleição não muda
- * isso.
+ * cargo, e a segunda de Vargas é outro país. Já Deodoro, FHC, Lula 2003 e Dilma
+ * contam uma vez cada por período contínuo, ainda que sejam dois mandatos
+ * seguidos ou dois títulos diferentes: o que a sequência pede é quem veio
+ * depois de quem, e nem a reeleição nem a eleição indireta que confirmou
+ * Deodoro em 1891 mudam isso.
  *
  * **As datas são ISO, não anos.** Ano sozinho não ordena esta lista: Jânio
- * Quadros e João Goulart começam ambos em 1961, e Vargas sai em 1954 no mesmo
- * ano em que Café Filho entra. String 'AAAA-MM-DD' compara na ordem certa por
- * acidente feliz do formato, então o teste de ordem não precisa de `Date` nem
- * de fuso — que é justamente onde datas históricas costumam se estragar.
+ * Quadros e João Goulart começam ambos em 1961, Delfim Moreira e Epitácio
+ * Pessoa se revezam dentro de 1919, e Vargas sai em 1954 no mesmo ano em que
+ * Café Filho entra. String 'AAAA-MM-DD' compara na ordem certa por acidente
+ * feliz do formato, então o teste de ordem não precisa de `Date` nem de fuso —
+ * que é justamente onde datas históricas costumam se estragar.
  */
 
 /** Como chegou ao cargo. Não pontua nada: existe para o gabarito e para o teste. */
@@ -76,11 +80,147 @@ export interface Presidente {
    * Presente exatamente quando há lacuna entre `fim` e o `inicio` seguinte — o
    * teste verifica a equivalência nos dois sentidos. É o que impede a lista de
    * ficar mais curta com o tempo sem ninguém perceber.
+   *
+   * Substituição temporária que não interrompe o mandato não conta como lacuna
+   * e não aparece aqui: Manuel Vitorino governou quase cinco meses no lugar de
+   * Prudente de Morais doente, em 1896, e mesmo assim o titular nunca deixou de
+   * ser Prudente.
    */
   readonly noIntervalo?: string
 }
 
 export const PRESIDENTES: readonly Presidente[] = [
+  // --- República Velha ------------------------------------------------------
+  {
+    id: 'deodoro',
+    nome: 'Deodoro da Fonseca',
+    completo: 'Manuel Deodoro da Fonseca',
+    aceitas: ['Deodoro da Fonseca', 'Deodoro', 'Marechal Deodoro', 'Manuel Deodoro da Fonseca'],
+    inicio: '1889-11-15',
+    // Renunciou sob a ameaça da Revolta da Armada, catorze meses depois de ser
+    // confirmado no cargo pelo Congresso. Chefe do Governo Provisório e
+    // presidente eleito indiretamente são o mesmo homem sem sair da cadeira, e
+    // por isso são uma linha só.
+    fim: '1891-11-23',
+    via: 'revolucao',
+  },
+  {
+    id: 'floriano',
+    nome: 'Floriano Peixoto',
+    completo: 'Floriano Vieira Peixoto',
+    aceitas: ['Floriano Peixoto', 'Floriano', 'Marechal Floriano', 'Floriano Vieira Peixoto'],
+    inicio: '1891-11-23',
+    fim: '1894-11-15',
+    via: 'sucessao',
+  },
+  {
+    id: 'prudente',
+    nome: 'Prudente de Morais',
+    completo: 'Prudente José de Morais Barros',
+    aceitas: ['Prudente de Morais', 'Prudente de Moraes', 'Prudente'],
+    inicio: '1894-11-15',
+    fim: '1898-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'campos-sales',
+    nome: 'Campos Sales',
+    completo: 'Manuel Ferraz de Campos Sales',
+    aceitas: ['Campos Sales', 'Campos Salles'],
+    inicio: '1898-11-15',
+    fim: '1902-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'rodrigues-alves',
+    nome: 'Rodrigues Alves',
+    completo: 'Francisco de Paula Rodrigues Alves',
+    aceitas: ['Rodrigues Alves', 'Francisco de Paula Rodrigues Alves'],
+    inicio: '1902-11-15',
+    // Eleito de novo em 1918 e morto pela gripe espanhola antes da posse: a
+    // segunda eleição não vira linha nenhuma aqui, porque ele não governou.
+    fim: '1906-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'afonso-pena',
+    nome: 'Afonso Pena',
+    completo: 'Afonso Augusto Moreira Pena',
+    aceitas: ['Afonso Pena', 'Affonso Penna', 'Afonso Augusto Moreira Pena'],
+    inicio: '1906-11-15',
+    // Morreu no cargo.
+    fim: '1909-06-14',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'nilo-pecanha',
+    nome: 'Nilo Peçanha',
+    completo: 'Nilo Procópio Peçanha',
+    aceitas: ['Nilo Peçanha', 'Nilo Procópio Peçanha'],
+    inicio: '1909-06-14',
+    fim: '1910-11-15',
+    via: 'sucessao',
+  },
+  {
+    id: 'hermes',
+    nome: 'Hermes da Fonseca',
+    completo: 'Hermes Rodrigues da Fonseca',
+    aceitas: ['Hermes da Fonseca', 'Hermes', 'Marechal Hermes', 'Hermes Rodrigues da Fonseca'],
+    inicio: '1910-11-15',
+    fim: '1914-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'venceslau',
+    nome: 'Venceslau Brás',
+    completo: 'Venceslau Brás Pereira Gomes',
+    aceitas: ['Venceslau Brás', 'Venceslau Braz', 'Wenceslau Brás'],
+    inicio: '1914-11-15',
+    fim: '1918-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'delfim-moreira',
+    nome: 'Delfim Moreira',
+    completo: 'Delfim Moreira da Costa Ribeiro',
+    aceitas: ['Delfim Moreira', 'Delfim Moreira da Costa Ribeiro'],
+    // Vice de Rodrigues Alves, que foi eleito e morreu sem tomar posse. Assumiu
+    // no dia marcado para o titular e ficou até a eleição de Epitácio.
+    inicio: '1918-11-15',
+    fim: '1919-07-28',
+    via: 'sucessao',
+  },
+  {
+    id: 'epitacio',
+    nome: 'Epitácio Pessoa',
+    completo: 'Epitácio Lindolfo da Silva Pessoa',
+    aceitas: ['Epitácio Pessoa', 'Epitácio'],
+    inicio: '1919-07-28',
+    fim: '1922-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'bernardes',
+    nome: 'Artur Bernardes',
+    completo: 'Artur da Silva Bernardes',
+    aceitas: ['Artur Bernardes', 'Arthur Bernardes', 'Artur da Silva Bernardes'],
+    inicio: '1922-11-15',
+    fim: '1926-11-15',
+    via: 'eleicao-direta',
+  },
+  {
+    id: 'washington-luis',
+    nome: 'Washington Luís',
+    completo: 'Washington Luís Pereira de Sousa',
+    aceitas: ['Washington Luís', 'Washington Luiz'],
+    inicio: '1926-11-15',
+    // Deposto pela Revolução de 1930 a três semanas do fim do mandato.
+    fim: '1930-10-24',
+    via: 'eleicao-direta',
+    noIntervalo:
+      'a Junta Governativa Provisória de 1930 — Tasso Fragoso, Mena Barreto e Isaías de Noronha',
+  },
+
   // --- Era Vargas -----------------------------------------------------------
   {
     id: 'vargas-1',
@@ -89,9 +229,9 @@ export const PRESIDENTES: readonly Presidente[] = [
     aceitas: ['Getúlio Vargas', 'Vargas', 'Getúlio', 'Getúlio Dornelles Vargas'],
     inicio: '1930-11-03',
     fim: '1945-10-29',
-    // Não foi eleito: recebeu o poder da Junta Governativa que depôs Washington
-    // Luís. Governo Provisório, Constitucional e Estado Novo são o mesmo homem
-    // sem sair do cargo, e por isso são uma linha só.
+    // Não foi eleito: recebeu o poder da junta que depôs Washington Luís.
+    // Governo Provisório, Constitucional e Estado Novo são o mesmo homem sem
+    // sair do cargo, e por isso são uma linha só.
     via: 'revolucao',
     noIntervalo: 'José Linhares, presidente do STF, nos três meses até a posse de Dutra',
   },
@@ -181,7 +321,8 @@ export const PRESIDENTES: readonly Presidente[] = [
     // civil, Pedro Aleixo, que era o que a Constituição de 1967 mandava.
     fim: '1969-08-31',
     via: 'eleicao-indireta',
-    noIntervalo: 'a Junta Militar de 1969 — Aurélio de Lira Tavares, Rademaker e Márcio de Sousa e Melo',
+    noIntervalo:
+      'a Junta Militar de 1969 — Aurélio de Lira Tavares, Rademaker e Márcio de Sousa e Melo',
   },
   {
     id: 'medici',
@@ -303,6 +444,16 @@ export const PRESIDENTES: readonly Presidente[] = [
     via: 'eleicao-direta',
   },
 ]
+
+/**
+ * Onde termina a República Velha, contado a partir do começo da lista.
+ *
+ * É o número que o jogo usa para explicar a si mesmo — e é a conta da meta no
+ * Nerdômetro, porque a dificuldade desta sequência está **toda** nestes treze
+ * primeiros itens. Fica aqui, e não escrito à mão lá, para não ficar errado no
+ * dia em que a lista mudar.
+ */
+export const FIM_DA_REPUBLICA_VELHA = PRESIDENTES.findIndex((p) => p.id === 'vargas-1')
 
 /** '1990-03-15' → 1990. Só os quatro primeiros caracteres: ver a nota do topo. */
 export const anoDe = (data: string): number => Number(data.slice(0, 4))

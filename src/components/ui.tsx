@@ -15,6 +15,7 @@ export const CORES_CATEGORIA: Record<Categoria, { texto: string; fundo: string; 
   matematica: { texto: 'text-mat', fundo: 'bg-mat-fundo', borda: 'group-hover:border-mat' },
   fisica: { texto: 'text-fis', fundo: 'bg-fis-fundo', borda: 'group-hover:border-fis' },
   quimica: { texto: 'text-qui', fundo: 'bg-qui-fundo', borda: 'group-hover:border-qui' },
+  biologicas: { texto: 'text-bio', fundo: 'bg-bio-fundo', borda: 'group-hover:border-bio' },
   geografia: { texto: 'text-geo', fundo: 'bg-geo-fundo', borda: 'group-hover:border-geo' },
   humanas: { texto: 'text-hum', fundo: 'bg-hum-fundo', borda: 'group-hover:border-hum' },
 }

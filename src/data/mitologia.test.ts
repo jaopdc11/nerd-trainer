@@ -112,6 +112,43 @@ describe('o panteão no enunciado', () => {
  * os pares abaixo existirem, o prefixo está justificado por escrito e por
  * teste.
  */
+describe('enunciado que identifica, e não só rotula', () => {
+  /**
+   * Regressão da carta do Osíris.
+   *
+   * Ela dizia "deus do mundo dos mortos, que julga as almas", e o dono do app
+   * respondeu Anúbis — com razão: quem opera a balança e pesa o coração é ele, e
+   * é essa a imagem que todo mundo tem do julgamento egípcio. O prefixo do
+   * panteão resolve grego × egípcio; ele não resolve dois deuses do MESMO
+   * panteão que dividem o mesmo território.
+   */
+  const TERRITORIOS: readonly { readonly termo: RegExp; readonly deles: readonly string[] }[] = [
+    { termo: /mort|além|balan|julg/i, deles: ['osiris', 'anubis', 'maat'] },
+    { termo: /sol|solar/i, deles: ['ra', 'amon'] },
+    { termo: /amor|beleza|música/i, deles: ['hathor', 'bastet'] },
+  ]
+
+  it('quem divide território com outro do mesmo panteão diz mais que o território', () => {
+    for (const { termo, deles } of TERRITORIOS) {
+      for (const d of DIVINDADES.filter((x) => deles.includes(x.id))) {
+        // Tirado o que é comum aos irmãos, tem de sobrar o que identifica: a
+        // história (o rei ressuscitado), o animal (chacal, gata) ou o objeto (a
+        // pena da balança). Sobrar pouco é a definição do defeito.
+        const identifica = d.dominio.replace(termo, '').trim()
+        expect(identifica.length, `${d.id}: "${d.dominio}" quase só diz o território`).toBeGreaterThan(20)
+      }
+    }
+  })
+
+  it('Osíris se identifica pela história, não pelo julgamento', () => {
+    const osiris = DIVINDADES.find((d) => d.id === 'osiris')
+    expect(osiris?.dominio).toMatch(/ressuscitad|assassinad|irmão/i)
+    expect(osiris?.dominio, 'o julgamento é de Anúbis na cabeça de quem joga').not.toMatch(
+      /julga as almas/i,
+    )
+  })
+})
+
 describe('os pares que justificam o prefixo', () => {
   const temNoPanteao = (panteao: Divindade['panteao'], palavra: string): boolean =>
     DIVINDADES.some(

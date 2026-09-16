@@ -41,6 +41,10 @@
   --color-fis-fundo: oklch(0.3 0.08 300);
   --color-qui: oklch(0.8 0.15 55);
   --color-qui-fundo: oklch(0.32 0.08 55);
+  /* Verde-folha: é a única família que sobrava entre o laranja da química e o
+     ciano da geografia, e é a cor que biologia tem em qualquer livro. */
+  --color-bio: oklch(0.8 0.15 145);
+  --color-bio-fundo: oklch(0.31 0.08 145);
   --color-geo: oklch(0.79 0.14 195);
   --color-geo-fundo: oklch(0.3 0.07 195);
   --color-hum: oklch(0.78 0.13 15);
