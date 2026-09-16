@@ -10,6 +10,7 @@ import { ROTULO_CATEGORIA } from '@/core/types'
 import type { Categoria, JogoModule } from '@/core/types'
 import { useRecordes } from '@/core/useRecords'
 import { Transferencia } from './Transferencia'
+import { FormulaNerdometro } from './FormulaNerdometro'
 import { BotaoLink, CORES_CATEGORIA, Etiqueta, IconeJogo, Painel } from './ui'
 
 interface Linha {
@@ -121,6 +122,15 @@ export function Records() {
         onSubstituir={substituirPor}
         onLimpar={limparTudo}
       />
+
+      {/* A conta, aberta, no fim de quem veio olhar os próprios números. */}
+      <Painel className="flex flex-col gap-3 p-5">
+        <h2 className="fonte-display flex items-center gap-3 text-sm font-semibold tracking-[0.2em] text-suave uppercase">
+          Como a nota é calculada
+          <span className="h-px flex-1 bg-borda" />
+        </h2>
+        <FormulaNerdometro />
+      </Painel>
     </div>
   )
 }

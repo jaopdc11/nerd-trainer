@@ -3,7 +3,6 @@ import { corDaNota, gradienteDaNota } from '@/core/escala'
 import {
   calcular,
   CRITERIOS,
-  CURVA,
   DESCRICAO_AREA,
   FAIXAS,
   ROTULO_AREA,
@@ -19,14 +18,8 @@ import { href } from '@/core/route'
 import type { Banco } from '@/core/storage'
 import { ROTULO_CATEGORIA } from '@/core/types'
 import type { Categoria } from '@/core/types'
-import { PI_DECIMAIS } from '@/data/constantes-matematicas'
-import { PAISES } from '@/data/paises'
+import { FormulaNerdometro } from './FormulaNerdometro'
 import { CORES_CATEGORIA, Etiqueta } from './ui'
-
-/** 0.65 → "0,65". Os números do texto saem do código; a vírgula é nossa. */
-const br = (n: number) => String(n).replace('.', ',')
-
-const metaDe = (jogoId: string) => CRITERIOS.find((c) => c.jogoId === jogoId)?.meta ?? 0
 
 /**
  * O gradiente sobre o próprio texto.
@@ -359,7 +352,7 @@ function Detalhe({
           ),
       )}
 
-      <Formula />
+      <FormulaNerdometro />
     </div>
   )
 }
@@ -410,50 +403,6 @@ function CabecalhoCategoria({
  * de `CRITERIOS` — se o balanceamento mudar, o texto muda junto, senão vira
  * mentira bem formatada.
  */
-function Formula() {
-  const pesos = [...new Set(CRITERIOS.map((c) => c.peso))].sort((a, b) => b - a)
-  const maior = pesos[0] as number
-  const menor = pesos[pesos.length - 1] as number
-
-  return (
-    <div className="flex flex-col gap-2 border-t border-borda pt-3 text-xs leading-relaxed text-tenue">
-      <p className="font-mono text-[0.7rem] text-suave">
-        nota = Σ(fração^{br(CURVA)} × peso) / Σ(peso) &nbsp;·&nbsp; fração = min(1, recorde /
-        meta)
-      </p>
-
-      <p>
-        A soma corre só sobre os <strong className="text-suave">jogos jogados</strong>. Jogo
-        intocado fica fora do numerador <em>e</em> do denominador — é por isso que lançar jogo novo
-        não derruba a nota de ninguém. A trava contra tirar 100 maxando um jogo só não está na
-        fórmula, está na etiqueta “em N de M jogos” ali em cima.
-      </p>
-
-      <p>
-        A <strong className="text-suave">meta</strong> de cada jogo é o que dá para decorar de
-        verdade, não o tamanho do dataset: π pede {metaDe('pi')} casas e o dataset tem{' '}
-        {PI_DECIMAIS.length.toLocaleString('pt-BR')}; países pede {metaDe('paises')}, a lista da
-        ONU, num tabuleiro de {PAISES.length} territórios.
-      </p>
-
-      <p>
-        O expoente <span className="font-mono text-suave">{br(CURVA)}</span> é retorno
-        decrescente. Ir de 0 a 40 países leva uma tarde; de 140 a 150 leva semanas. Tratar os dois
-        trechos como iguais puniria exatamente quem faz o que o app pede, que é saber de tudo um
-        pouco.
-      </p>
-
-      <p>
-        O <strong className="text-suave">peso</strong> vai de {br(maior)} (repertório grande) a{' '}
-        {br(menor)} (cálculo rápido), passando por {pesos.slice(1, -1).map(br).join(' e ')}. E
-        cuidado:{' '}
-        <strong className="text-suave">peso não soma ponto, ele amplifica a sua fração</strong> —
-        peso alto num jogo em que você vai mal derruba a nota mais rápido do que um jogo leve
-        levanta.
-      </p>
-    </div>
-  )
-}
 
 function Linha({ linha, sugerido }: { linha: LinhaNerdometro; sugerido: boolean }) {
   const pct = Math.round(linha.fracao * 100)
