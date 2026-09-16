@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
+import { useContagem } from '@/core/useContagem'
 import type { Categoria } from '@/core/types'
 
 /**
@@ -155,34 +157,83 @@ export function IconeJogo({
 }
 
 /**
- * Número grande do placar. Mono e tabular para não dançar a cada mudança, e
- * com um brilho quando o valor vira recorde.
+ * Número grande do placar. Mono e tabular para não dançar a cada mudança.
+ *
+ * O acerto **aparece**: o número dá um pulo curto e um "+1" sobe e some ao
+ * lado. A animação já existia no CSS desde o começo e nunca tinha sido ligada em
+ * lugar nenhum — o placar trocava de número em silêncio, que é o mesmo que
+ * pontuar sem ninguém avisar. Como todos os quatro motores usam este componente,
+ * ligar aqui acende o app inteiro de uma vez.
+ *
+ * `contar` é para o fim de partida, onde o número sobe de zero até o placar
+ * final: no meio do jogo isso seria ridículo, então ali ele fica desligado.
  */
 export function Placar({
   valor,
   sufixo,
   total,
   destacado = false,
+  contar = false,
 }: {
   valor: number
   sufixo?: string
   total?: number
   destacado?: boolean
+  contar?: boolean
 }) {
+  const exibido = useContagem(valor, { ativo: contar })
+  const ganho = useGanho(contar ? 0 : valor)
+
   return (
     <p className="flex items-baseline gap-2">
-      <span
-        className={`font-mono text-5xl tabular font-bold transition-colors duration-300 ${
-          destacado ? 'text-acento' : 'text-texto'
-        }`}
-        style={destacado ? { textShadow: '0 0 28px var(--color-acento)' } : undefined}
-      >
-        {valor}
+      <span className="relative">
+        <span
+          className={`inline-block font-mono text-5xl tabular font-bold transition-colors duration-300 ${
+            destacado ? 'text-acento motion-safe:animate-halo' : 'text-texto'
+          } ${ganho ? 'motion-safe:animate-pulo' : ''}`}
+          style={destacado ? { textShadow: '0 0 28px var(--color-acento)' } : undefined}
+        >
+          {exibido}
+        </span>
+
+        {/* Some sozinho depois de 700 ms, e não no fim da animação: com
+            `prefers-reduced-motion` a animação nunca termina porque nunca
+            começa, e o "+1" ficaria pendurado na tela para sempre. */}
+        {ganho && (
+          <span
+            aria-hidden
+            key={ganho.id}
+            className="motion-safe:animate-subir-ponto pointer-events-none absolute -top-2 left-full ml-1.5 font-mono text-xl font-bold text-acento motion-reduce:hidden"
+          >
+            +{ganho.delta}
+          </span>
+        )}
       </span>
       {total !== undefined && <span className="font-mono text-xl text-tenue">/{total}</span>}
       {sufixo && <span className="text-sm text-suave">{sufixo}</span>}
     </p>
   )
+}
+
+/** O quanto o placar acabou de subir, por 700 ms. `null` quando não subiu. */
+function useGanho(valor: number): { delta: number; id: number } | null {
+  const anterior = useRef(valor)
+  const [ganho, setGanho] = useState<{ delta: number; id: number } | null>(null)
+
+  useEffect(() => {
+    const delta = valor - anterior.current
+    anterior.current = valor
+    // Só para cima: reiniciar a partida zera o placar, e "−37" subindo em
+    // vermelho seria o app comemorando o recomeço.
+    if (delta <= 0) return
+
+    const id = Date.now()
+    setGanho({ delta, id })
+    const relogio = setTimeout(() => setGanho((g) => (g?.id === id ? null : g)), 700)
+    return () => clearTimeout(relogio)
+  }, [valor])
+
+  return ganho
 }
 
 /**

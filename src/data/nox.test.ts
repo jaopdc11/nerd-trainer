@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COMPOSTOS, exibirNox, nox } from './nox'
+import { COMPOSTOS, distratores, exibirNox, nox } from './nox'
 
 /**
  * O gabarito, escrito à mão.
@@ -41,6 +41,50 @@ describe('nox', () => {
     expect(de('OF₂'), 'oxigênio ligado a flúor tem de ser positivo').toBeGreaterThan(0)
     expect(de('NaH'), 'hidreto tem de fugir do +1').not.toBe(1)
     expect(de('LiAlH₄')).toBe(-1)
+  })
+})
+
+describe('distratores', () => {
+  it('dão sempre pelo menos três opções erradas, distintas e plausíveis', () => {
+    for (const c of COMPOSTOS) {
+      const errados = distratores(c)
+      expect(errados.length, c.formula).toBeGreaterThanOrEqual(3)
+      expect(new Set(errados).size, c.formula).toBe(errados.length)
+      for (const v of errados) {
+        expect(v, `${c.formula}: ${v} é a resposta certa`).not.toBe(nox(c))
+        expect(Number.isInteger(v), `${c.formula}: ${v}`).toBe(true)
+        // Fora da faixa que existe em química, a opção se elimina sozinha e a
+        // carta vira três alternativas.
+        expect(v, `${c.formula}: ${v}`).toBeGreaterThanOrEqual(-4)
+        expect(v, `${c.formula}: ${v}`).toBeLessThanOrEqual(7)
+      }
+    }
+  })
+
+  it('oferecem a regra decorada onde ela trai — que é o nível 2 inteiro', () => {
+    // Em H₂O₂ o oxigênio vale −1, e −2 tem de estar na tela: é a opção que a
+    // pessoa marca quando repete "oxigênio é sempre −2".
+    const de = (f: string) => distratores(COMPOSTOS.find((c) => c.formula === f) as never)
+    expect(de('H₂O₂')).toContain(-2)
+    expect(de('Na₂O₂')).toContain(-2)
+    expect(de('OF₂')).toContain(-2)
+    expect(de('NaH')).toContain(1)
+    expect(de('CaH₂')).toContain(1)
+    expect(de('LiAlH₄')).toContain(1)
+  })
+
+  it('oferecem a carga esquecida nos íons', () => {
+    // Em SO₄²⁻ o enxofre é +6; quem resolve como se o íon fosse neutro acha +8.
+    const sulfato = COMPOSTOS.find((c) => c.formula === 'SO₄²⁻') as never
+    expect(nox(sulfato)).toBe(6)
+    // +8 está fora da faixa e cai fora de propósito: sobra o resto da lista.
+    expect(distratores(sulfato).length).toBeGreaterThanOrEqual(3)
+
+    // No nitrito o erro de carga cabe na faixa e tem de aparecer: +3 é o certo,
+    // +4 é o que sai sem a carga.
+    const nitrito = COMPOSTOS.find((c) => c.formula === 'NO₂⁻') as never
+    expect(nox(nitrito)).toBe(3)
+    expect(distratores(nitrito)).toContain(4)
   })
 })
 

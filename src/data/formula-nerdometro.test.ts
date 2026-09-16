@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { CURVA } from '@/core/nerdometro'
-import { CURVA_NA_FORMULA, FORMULA_FRACAO, FORMULA_NOTA, LEGENDA } from './formula-nerdometro'
+import { CURVA, PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
+import {
+  CURVA_NA_FORMULA,
+  FORMULA_CONJUNTO,
+  FORMULA_FRACAO,
+  FORMULA_NOTA,
+  LEGENDA,
+  PARTIDAS_NA_FORMULA,
+} from './formula-nerdometro'
 
 /**
  * A página que explica o Nerdômetro não pode mentir sobre o Nerdômetro.
@@ -17,6 +24,23 @@ describe('a fórmula exibida', () => {
       CURVA_NA_FORMULA,
       'CURVA mudou — rode `node scripts/gen-formula-nerdometro.mjs`',
     ).toBe(CURVA)
+  })
+
+  it('foi gerada com a carência de estreia que o código usa hoje', () => {
+    expect(
+      PARTIDAS_NA_FORMULA,
+      'PARTIDAS_PARA_ENTRAR mudou — rode `node scripts/gen-formula-nerdometro.mjs`',
+    ).toBe(PARTIDAS_PARA_ENTRAR)
+  })
+
+  it('escreve quem entra na soma, em vez de deixar J subentendido', () => {
+    // A carência é a parte da conta que o jogador sente na pele: ele joga, a
+    // nota não mexe. Se ela não estiver escrita, a página mente por omissão.
+    const texto = FORMULA_CONJUNTO.replace(/<[^>]+>/g, '')
+    expect(texto, 'faltou definir J').toContain('J')
+    expect(texto, 'faltou a contagem de partidas').toContain('n')
+    expect(texto, 'faltou a condição de meta cheia').toContain('1')
+    expect(FORMULA_CONJUNTO.startsWith('<math')).toBe(true)
   })
 
   it('mostra o expoente com vírgula decimal, que é como se escreve em português', () => {

@@ -29,6 +29,13 @@ const COR_BLOCO: Record<string, string> = {
   p: 'bg-[oklch(0.36_0.09_235)] text-[oklch(0.94_0.06_235)] border-[oklch(0.48_0.11_235)]',
   d: 'bg-[oklch(0.36_0.08_160)] text-[oklch(0.94_0.06_160)] border-[oklch(0.48_0.1_160)]',
   f: 'bg-[oklch(0.36_0.09_300)] text-[oklch(0.94_0.06_300)] border-[oklch(0.48_0.11_300)]',
+  // As famílias do Modelo Padrão, nos mesmos quatro matizes dos blocos da
+  // periódica: são dois quadros com a mesma lógica de leitura — a cor é o que
+  // deixa ver de relance que os bósons ficaram todos em branco.
+  quark: 'bg-[oklch(0.36_0.1_25)] text-[oklch(0.94_0.06_25)] border-[oklch(0.48_0.12_25)]',
+  lepton: 'bg-[oklch(0.36_0.09_235)] text-[oklch(0.94_0.06_235)] border-[oklch(0.48_0.11_235)]',
+  gauge: 'bg-[oklch(0.36_0.08_160)] text-[oklch(0.94_0.06_160)] border-[oklch(0.48_0.1_160)]',
+  escalar: 'bg-[oklch(0.36_0.09_300)] text-[oklch(0.94_0.06_300)] border-[oklch(0.48_0.11_300)]',
 }
 
 export function GridEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
@@ -382,7 +389,7 @@ function Fim({
   const fim = desfecho(sessao.acertos, run, recorde)
 
   return (
-    <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-5">
+    <Painel className="cascata flex flex-col items-start gap-5 p-5">
       <h2 className="fonte-display text-2xl font-bold">
         {completou ? (
           <span className="text-acento">Tudo preenchido!</span>

@@ -55,6 +55,9 @@
   --animate-brilho: brilho 0.6s ease-out;
   --animate-subir-ponto: subir-ponto 0.7s ease-out forwards;
   --animate-respirar: respirar 2.4s ease-in-out infinite;
+  --animate-pulo: pulo 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-halo: halo 2.2s ease-in-out infinite;
+  --animate-entrar-tela: entrar-tela 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 @keyframes surgir {
@@ -110,6 +113,49 @@
   }
   50% {
     opacity: 1;
+  }
+}
+
+/* O número do placar reagindo ao acerto. Curto: acompanha o "+1" que sobe. */
+@keyframes pulo {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12);
+  }
+}
+
+/*
+ * O brilho do recorde, respirando.
+ *
+ * Bater recorde já pintava o número de verde, e verde parado é só uma cor. O
+ * halo pulsa devagar (2,2 s) de propósito: rápido viraria alarme, e o que se
+ * quer dizer aqui é "isto aqui é seu melhor", não "corra".
+ */
+@keyframes halo {
+  0%,
+  100% {
+    text-shadow: 0 0 28px var(--color-acento);
+  }
+  50% {
+    text-shadow:
+      0 0 46px var(--color-acento),
+      0 0 14px var(--color-acento);
+  }
+}
+
+/* Troca de tela. Menor que o `surgir` das listas: a tela inteira andando 10px
+   parece lerdo, e o que se quer é só dizer que a página é outra. */
+@keyframes entrar-tela {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -196,8 +242,39 @@ body::before {
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
+/*
+ * Cascata sem numerar os filhos à mão.
+ *
+ * A `.escalonar` pede um `--i` por item, o que é certo numa lista mapeada e é
+ * burocracia num painel escrito à mão — foi por isso que a tela de fim de
+ * partida nunca teve entrada nenhuma: ninguém ia numerar seis irmãos no JSX. O
+ * `nth-child` resolve isso onde a contagem de filhos é pequena e conhecida.
+ */
+.cascata > * {
+  animation: surgir 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.cascata > :nth-child(2) {
+  animation-delay: 70ms;
+}
+.cascata > :nth-child(3) {
+  animation-delay: 140ms;
+}
+.cascata > :nth-child(4) {
+  animation-delay: 210ms;
+}
+.cascata > :nth-child(5) {
+  animation-delay: 280ms;
+}
+.cascata > :nth-child(6) {
+  animation-delay: 350ms;
+}
+.cascata > :nth-child(n + 7) {
+  animation-delay: 420ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .escalonar > * {
+  .escalonar > *,
+  .cascata > * {
     animation: none;
   }
 }

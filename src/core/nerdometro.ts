@@ -33,6 +33,10 @@ import type { Categoria } from './types'
  * 4. **A fração entra numa curva de retorno decrescente.** Ver `CURVA`. Num
  *    medidor que cobre vinte e tantas áreas, tratar 0→50% e 50→100% como o
  *    mesmo esforço pune quem faz o que o app pede.
+ * 5. **A estreia não conta, salvo se já bateu a meta.** Ver
+ *    `PARTIDAS_PARA_ENTRAR`. É a contraparte necessária da decisão 3: se jogo
+ *    intocado fica fora da conta, abrir um jogo pela primeira vez não pode ser
+ *    o ato que derruba a nota.
  */
 
 export const AREAS = ['memoria', 'sequencia', 'velocidade'] as const
@@ -90,15 +94,89 @@ export const CRITERIOS: readonly Criterio[] = [
   { jogoId: 'pi', meta: 100, peso: 3, area: 'sequencia' },
   { jogoId: 'constantes-fisicas', meta: 14, peso: 3, area: 'memoria' },
   { jogoId: 'formulas', meta: 54, peso: 3, area: 'memoria' },
+  // O mesmo acervo da tabela periódica por outro ângulo, e é por isso que é 3 e
+  // não 4: peso máximo nos dois amplificaria duas vezes o mesmo conhecimento.
+  { jogoId: 'simbolos-elementos', meta: 100, peso: 3, area: 'memoria' },
+  // 40 de 49: a cauda (⊨, ⊢, ∎, ∵) é obscura de verdade, e o baralho é
+  // digitado — exigir os 49 viraria o poço sem fundo que países já foi.
+  { jogoId: 'simbolos-matematicos', meta: 40, peso: 3, area: 'memoria' },
+  // O mesmo 130 das capitais, de propósito: 58 das 195 cartas caem em cinco
+  // blocos compartilhados (euro, CFA, dólar) e saem quase de graça depois que se
+  // pega o padrão. Peso 3 e não 4 porque é o quarto jogo sobre o mesmo acervo de
+  // países — peso máximo amplificaria o mesmo conhecimento uma quarta vez.
+  { jogoId: 'moedas', meta: 130, peso: 3, area: 'memoria' },
+  // Peso 3 como as fórmulas, e pelo mesmo motivo: não é repertório decorável,
+  // é compreensão. Acertar 30 de 32 aqui diz mais sobre alguém do que qualquer
+  // outro jogo de matemática do app.
+  { jogoId: 'linguagem-matematica', meta: 32, peso: 3, area: 'memoria' },
 
   // 2 — repertório fechado e decorável.
   { jogoId: 'alfabeto-grego', meta: 24, peso: 2, area: 'memoria' },
   { jogoId: 'prefixos-si', meta: 24, peso: 2, area: 'memoria' },
+  // 22 de 26: o baralho tem cauda de verdade (katal, lux, gray, sievert), ao
+  // contrário da nomenclatura de ácidos, onde o baralho é a própria regra.
+  { jogoId: 'grandezas', meta: 22, peso: 2, area: 'memoria' },
+  // Peso 2 e não 3 apesar de ser compreensão: baralho de escolha mede
+  // reconhecer, que é evidência mais fraca por carta — como a geometria molecular.
+  { jogoId: 'analise-dimensional', meta: 34, peso: 2, area: 'memoria' },
   { jogoId: 'geometria-molecular', meta: 32, peso: 2, area: 'memoria' },
+  // 38 cartas, 30 delas de escolha: o chute puro já entrega uns 9, então a meta
+  // tem de ficar bem acima do piso do acaso.
+  { jogoId: 'sistema-solar', meta: 32, peso: 2, area: 'memoria' },
+  // Lista fechada de 17: meta menor daria nota cheia a quem decorou os 12
+  // férmions e esqueceu os bósons, que é justamente a metade que separa quem
+  // entendeu o quadro de quem decorou partículas.
+  { jogoId: 'modelo-padrao', meta: 17, peso: 2, area: 'memoria' },
+  // 22 de escolha, chute entrega ~5,5. 18 é ter as galileanas, as de Saturno e
+  // as de Urano; o resto é cauda.
+  { jogoId: 'luas', meta: 18, peso: 2, area: 'memoria' },
   { jogoId: 'filosofia', meta: 45, peso: 2, area: 'memoria' },
   { jogoId: 'sociologia', meta: 32, peso: 2, area: 'memoria' },
+  // Um degrau abaixo dos irmãos (filosofia 83%, sociologia 82%): a cauda aqui é
+  // mais obscura — Walras, Mises, Pareto, Ostrom não caem em prova de escola.
+  { jogoId: 'economia', meta: 30, peso: 2, area: 'memoria' },
+  // A meta mais alta da faixa, porque é o baralho sem cauda: mitologia grega vem
+  // de desenho animado e os egípcios são os de qualquer documentário.
+  { jogoId: 'mitologia', meta: 28, peso: 2, area: 'memoria' },
+  // A mais baixa: dez cartas do baralho são difíceis de verdade e existem para
+  // dar profundidade, não para virar pedágio.
+  { jogoId: 'pinturas', meta: 28, peso: 2, area: 'memoria' },
+  // 26 de 32: a cauda (Methuen, Nanquim, Brest-Litovski) é conhecimento de
+  // especialista, e o baralho inteiro viraria jogo de nota de rodapé.
+  { jogoId: 'revolucoes', meta: 26, peso: 2, area: 'memoria' },
+  // 40 de 53: o cânone inteiro menos a dúzia que só quem lê fora da escola
+  // conhece (Ulisses, Mrs. Dalloway, O Ateneu).
+  { jogoId: 'obras', meta: 40, peso: 2, area: 'memoria' },
+  // 40 de 49, mais alta que a de obras porque é escolha de quatro: o chute cego
+  // já entrega uns 12, e meta baixa mediria sorte.
+  { jogoId: 'escolas-literarias', meta: 40, peso: 2, area: 'memoria' },
+  // 36 de 49: a cauda escolástica (petitio principii, a fortiori, rebus sic
+  // stantibus) é obscura de verdade, e o baralho inteiro seria poço sem fundo.
+  { jogoId: 'latim', meta: 36, peso: 2, area: 'memoria' },
   { jogoId: 'estados', meta: 27, peso: 2, area: 'memoria' },
   { jogoId: 'capitais-estados', meta: 27, peso: 2, area: 'memoria' },
+  // 40 de 51, e não o tabuleiro cheio como nas 27 UFs: estado americano é
+  // repertório estrangeiro, e a cauda (as duas Dakotas, Kansas/Arkansas/
+  // Nebraska, DC) é difícil de verdade — mesma lógica de capitais e bandeiras.
+  { jogoId: 'eua', meta: 40, peso: 2, area: 'memoria' },
+  // 33 de 39: as 12 cartas de pista saem de graça para quem sabe os seis biomas,
+  // então o trabalho está nas 27 UFs — e 33 perdoa justamente as divididas.
+  { jogoId: 'biomas', meta: 33, peso: 2, area: 'memoria' },
+  // 150, e não 130: cinco palavras (inglês, francês, árabe, espanhol, português)
+  // já cobrem 142 das 195 cartas, então meta baixa daria nota cheia a quem não
+  // encara Suriname, Butão, Eritreia.
+  { jogoId: 'idiomas', meta: 150, peso: 2, area: 'memoria' },
+  // 20 de 30: a cauda (Palk, Kerch, Öresund, Davis) é de especialista.
+  { jogoId: 'estreitos', meta: 20, peso: 2, area: 'memoria' },
+  { jogoId: 'funcoes-organicas', meta: 36, peso: 2, area: 'memoria' },
+  // 40 de 49: a cauda de laboratório (tiocianato, oxalato, plumboso) não é o
+  // que separa quem sabe a tabela de íons de quem não sabe.
+  { jogoId: 'ions', meta: 40, peso: 2, area: 'memoria' },
+  // O baralho inteiro, porque o baralho É uma regra: quem entendeu hipo-/per-
+  // gera os 28 sozinho, e meta menor daria nota cheia a meia série.
+  { jogoId: 'nomenclatura-acidos', meta: 28, peso: 2, area: 'memoria' },
+  // Morte súbita: a pontuação é a sequência sem errar, não o baralho de 118.
+  { jogoId: 'familias-periodicas', meta: 40, peso: 2, area: 'memoria' },
 
   // 1 — sequências curtas e cronometrados: treinam reflexo, não acervo.
   { jogoId: 'e', meta: 30, peso: 1, area: 'sequencia' },
@@ -107,9 +185,37 @@ export const CRITERIOS: readonly Criterio[] = [
   { jogoId: 'primos', meta: 40, peso: 1, area: 'sequencia' },
   { jogoId: 'fibonacci', meta: 30, peso: 1, area: 'sequencia' },
   { jogoId: 'potencias-2', meta: 40, peso: 1, area: 'sequencia' },
+  // As onze fronteiras inteiras: parar no visível é parar na metade fácil.
+  { jogoId: 'espectro', meta: 11, peso: 1, area: 'sequencia' },
+  // 15 de 20: as dez primeiras posições qualquer um arrisca, então a nota cheia
+  // tem de exigir a metade que ninguém sabe — Cazaquistão, Argélia, RDC.
+  { jogoId: 'maiores-paises', meta: 15, peso: 1, area: 'sequencia' },
+  // 16 obriga a atravessar a virada dos rios para as montanhas: meta ≤ 10 daria
+  // nota cheia a quem nunca chegou ao segundo trecho.
+  { jogoId: 'rios-montanhas', meta: 16, peso: 1, area: 'sequencia' },
+  // A lista inteira: a dificuldade é toda no começo (Vargas, Dutra, Vargas, Café
+  // Filho, os cinco generais), e quem chega em Sarney termina de olho fechado.
+  { jogoId: 'presidentes', meta: 21, peso: 2, area: 'sequencia' },
+  // Idem: a lista É a periodização, e dar nota cheia por 8 de 11 premiaria quem
+  // não sabe onde entra o Reino Unido — que é o item que o jogo existe para ensinar.
+  { jogoId: 'periodos-brasil', meta: 11, peso: 1, area: 'sequencia' },
   { jogoId: 'derivadas-rapidas', meta: 25, peso: 1, area: 'velocidade' },
   { jogoId: 'ordem-de-grandeza', meta: 25, peso: 1, area: 'velocidade' },
   { jogoId: 'nox', meta: 25, peso: 1, area: 'velocidade' },
+  // Meta 20 e não os 25 dos irmãos: lá o item é "+6" contra "−2", aqui cada
+  // carta pede a leitura de quatro cadeias de orbitais. Com 25 a barra sairia
+  // calada porém mais alta que a dos vizinhos de mesmo peso.
+  { jogoId: 'configuracao-eletronica', meta: 20, peso: 1, area: 'velocidade' },
+  // Mesma conta do anterior: ler a equação e comparar quatro conjuntos de
+  // quatro números custa mais que ler "nox do S em H₂SO₄", e o relógio maior
+  // paga o custo do item, não aumenta a vazão.
+  { jogoId: 'balanceamento', meta: 20, peso: 1, area: 'velocidade' },
+  { jogoId: 'ph', meta: 25, peso: 1, area: 'velocidade' },
+  // 20: cada item é uma linha de dados a decifrar e uma variável a isolar antes
+  // de qualquer conta — não se lê na batida de "nox do S em H₂SO₄".
+  { jogoId: 'cinematica', meta: 20, peso: 1, area: 'velocidade' },
+  // 25: dois dados e uma seta, mesma batida e mesmo bônus dos irmãos.
+  { jogoId: 'circuitos', meta: 25, peso: 1, area: 'velocidade' },
   { jogoId: 'massa-molar', meta: 25, peso: 1, area: 'velocidade' },
   { jogoId: 'cronologia', meta: 30, peso: 1, area: 'velocidade' },
 
@@ -140,6 +246,12 @@ export interface LinhaNerdometro {
   readonly partidas: number
   /** Chegou na meta. */
   readonly dominado: boolean
+  /**
+   * Já pesa na nota. `false` também em jogo jogado uma vez só e ainda longe da
+   * meta — ver `PARTIDAS_PARA_ENTRAR`. A tela precisa disto para não deixar o
+   * jogador procurando por que a nota não mexeu.
+   */
+  readonly naNota: boolean
 }
 
 export interface NotaArea {
@@ -234,6 +346,11 @@ export interface Nerdometro {
   /** Onde há mais nota a ganhar. */
   readonly proximoPasso: LinhaNerdometro | null
   readonly jogados: number
+  /**
+   * Jogados uma vez só e ainda fora da nota. O mostrador fala deles: sem isso,
+   * a carência vira um número que não mexe e ninguém sabe por quê.
+   */
+  readonly emExperiencia: number
   readonly total: number
   readonly dominados: number
   readonly partidas: number
@@ -269,6 +386,32 @@ export const CURVA = 0.65
 
 const comCurva = (fracao: number) => fracao ** CURVA
 
+/**
+ * A estreia não conta — a menos que ela já tenha batido a meta.
+ *
+ * O problema que isto resolve: **experimentar um jogo derrubava a nota**. Abrir
+ * a notação científica, fazer 3 de 25 na primeira partida e ver a nota geral
+ * cair um ponto e a da área cair quinze não é medição, é punição por
+ * curiosidade. E o catálogo só cresce: com 60 jogos, a maior parte do tempo a
+ * nota seria o retrato de jogos recém-abertos, não do que a pessoa sabe. Uma
+ * partida é amostra, não desempenho.
+ *
+ * A exceção existe porque a regra crua produzia um absurdo pior que o problema:
+ * fechar os 24 do alfabeto grego de primeira não contava ponto nenhum. Quem
+ * chegou à meta já provou o que tinha para provar, e uma segunda partida não
+ * acrescentaria informação — só burocracia.
+ *
+ * Não é anti-trapaça: quem quiser pode jogar duas vezes mal de propósito. É
+ * proteção contra o castigo de abrir um jogo pela primeira vez, e o mostrador
+ * diz quantos estão nessa situação, para o número nunca parecer mágica.
+ */
+export const PARTIDAS_PARA_ENTRAR = 2
+
+function entraNaNota(l: { recorde: number; partidas: number; fracao: number }): boolean {
+  if (l.recorde <= 0) return false
+  return l.partidas >= PARTIDAS_PARA_ENTRAR || l.fracao >= 1
+}
+
 function media(
   linhas: readonly LinhaNerdometro[],
   noMaximo?: string,
@@ -279,8 +422,10 @@ function media(
 
   for (const l of linhas) {
     if (filtro && !filtro(l)) continue
+    // O jogo fingido no máximo entra sempre: chegar lá custa uma partida, e com
+    // a meta cheia ele passaria pela carência de qualquer jeito.
     const cheio = l.jogoId === noMaximo
-    if (!cheio && l.recorde === 0) continue
+    if (!cheio && !entraNaNota(l)) continue
     soma += comCurva(cheio ? 1 : l.fracao) * l.peso
     peso += l.peso
   }
@@ -306,6 +451,9 @@ function mediaCom(
   let peso = 0
 
   for (const l of linhas) {
+    // Quem está sendo simulado entra sempre: a pontuação pedida é sempre maior
+    // que o recorde, então ela custa uma partida nova e cumpre a carência.
+    if (l.jogoId !== jogoId && !entraNaNota(l)) continue
     const p = l.jogoId === jogoId ? pontuacao : l.recorde
     if (p <= 0) continue
     soma += comCurva(Math.min(1, p / l.meta)) * l.peso
@@ -448,6 +596,7 @@ export function calcular(banco: Banco): Nerdometro {
       potencial: 0,
       partidas: entrada?.partidas ?? 0,
       dominado: fracao >= 1,
+      naNota: entraNaNota({ recorde, partidas: entrada?.partidas ?? 0, fracao }),
     }
   })
 
@@ -480,7 +629,7 @@ export function calcular(banco: Banco): Nerdometro {
 
   const categorias = CATEGORIAS.map((categoria): NotaCategoria => {
     const daCategoria = linhas.filter((l) => l.categoria === categoria)
-    const jogados = daCategoria.filter((l) => l.recorde > 0).length
+    const jogados = daCategoria.filter((l) => l.naNota).length
 
     return {
       categoria,
@@ -509,7 +658,8 @@ export function calcular(banco: Banco): Nerdometro {
     areas,
     categorias,
     proximoPasso: [...linhas].sort((a, b) => b.potencial - a.potencial)[0] ?? null,
-    jogados: linhas.filter((l) => l.recorde > 0).length,
+    jogados: linhas.filter((l) => l.naNota).length,
+    emExperiencia: linhas.filter((l) => l.recorde > 0 && !l.naNota).length,
     total: linhas.length,
     dominados: linhas.filter((l) => l.dominado).length,
     partidas: todas.reduce((s, e) => s + e.partidas, 0),

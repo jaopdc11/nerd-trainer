@@ -36,20 +36,25 @@ const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..')
 
 /** Lê a constante da fonte da verdade, sem importar TypeScript. */
-function lerCurva() {
+function lerConstante(nome) {
   const fonte = readFileSync(join(RAIZ, 'src/core/nerdometro.ts'), 'utf8')
-  const casa = fonte.match(/export const CURVA = ([\d.]+)/)
-  if (!casa) throw new Error('não achei `export const CURVA` em src/core/nerdometro.ts')
+  const casa = fonte.match(new RegExp(`const ${nome} = ([\\d.]+)`))
+  if (!casa) throw new Error(`não achei "const ${nome}" em src/core/nerdometro.ts`)
   return Number(casa[1])
 }
 
-const CURVA = lerCurva()
+const CURVA = lerConstante('CURVA')
+/** A carência de estreia, lida da mesma fonte da verdade que o expoente. */
+const PARTIDAS = lerConstante('PARTIDAS_PARA_ENTRAR')
 // Vírgula decimal: é português. `{,}` para o KaTeX não tratar como separador.
 const gama = String(CURVA).replace('.', '{,}')
 
 /**
- * `J` é o conjunto dos jogos jogados — o detalhe que a versão anterior escondia
- * e que é justamente a decisão de desenho mais importante da nota.
+ * `J` é o conjunto dos jogos que entram na conta — o detalhe que a versão
+ * anterior escondia e que é justamente a decisão de desenho mais importante da
+ * nota. Ele ganhou linha própria quando a carência de estreia entrou: dizer
+ * "jogos jogados" na legenda e aplicar outra regra no código seria a mesma
+ * mentira que este arquivo existe para evitar.
  */
 const FORMULAS = {
   nota: String.raw`
@@ -61,16 +66,20 @@ const FORMULAS = {
     \qquad
     \gamma = ${gama}
   `,
+  conjunto: String.raw`
+    J \;=\; \left\{\, i \;:\; r_i > 0 \;\wedge\; \left(n_i \geq ${PARTIDAS} \;\vee\; f_i = 1\right) \right\}
+  `,
 }
 
 /** Símbolo, e o que ele é. A fórmula sem isto é charada. */
 const LEGENDA = [
   ['N', 'a nota, de 0 a 100 (× 100 na exibição)'],
-  ['J', 'o conjunto dos jogos que você já jogou'],
+  ['J', 'os jogos que entram na conta'],
   ['r_i', 'seu recorde no jogo i'],
   ['m_i', 'a meta do jogo i'],
   ['f_i', 'sua fração da meta, no máximo 1'],
   ['p_i', 'o peso do jogo i'],
+  ['n_i', 'quantas partidas você jogou do jogo i'],
   ['\\gamma', 'o expoente do retorno decrescente'],
 ]
 
@@ -95,11 +104,17 @@ const saida = `// GERADO POR scripts/gen-formula-nerdometro.mjs — não edite �
 /** O valor de \`CURVA\` no momento em que este arquivo foi gerado. */
 export const CURVA_NA_FORMULA = ${CURVA}
 
+/** O valor de \`PARTIDAS_PARA_ENTRAR\` no momento em que este arquivo foi gerado. */
+export const PARTIDAS_NA_FORMULA = ${PARTIDAS}
+
 /** A nota: média dos pesos, com a fração passada pela curva. */
 export const FORMULA_NOTA = ${JSON.stringify(paraMathML(FORMULAS.nota))}
 
 /** A fração de cada jogo, e o valor do expoente. */
 export const FORMULA_FRACAO = ${JSON.stringify(paraMathML(FORMULAS.fracao))}
+
+/** Quem entra na soma: a carência de estreia, escrita como conjunto. */
+export const FORMULA_CONJUNTO = ${JSON.stringify(paraMathML(FORMULAS.conjunto))}
 
 /** O que cada símbolo quer dizer. Fórmula sem legenda é charada. */
 export const LEGENDA: readonly { readonly simbolo: string; readonly oQueE: string }[] = [
@@ -108,4 +123,4 @@ ${legenda}
 `
 
 writeFileSync(join(RAIZ, 'src/data/formula-nerdometro.ts'), saida)
-console.log(`formula-nerdometro.ts gerado com CURVA = ${CURVA}, ${LEGENDA.length} símbolos`)
+console.log(`formula-nerdometro.ts gerado com CURVA = ${CURVA}, carência ${PARTIDAS}, ${LEGENDA.length} símbolos`)

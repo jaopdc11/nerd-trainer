@@ -1,6 +1,12 @@
 import { CURVA, CRITERIOS } from '@/core/nerdometro'
 import { PI_DECIMAIS } from '@/data/constantes-matematicas'
-import { FORMULA_FRACAO, FORMULA_NOTA, LEGENDA } from '@/data/formula-nerdometro'
+import {
+  FORMULA_CONJUNTO,
+  FORMULA_FRACAO,
+  FORMULA_NOTA,
+  LEGENDA,
+  PARTIDAS_NA_FORMULA,
+} from '@/data/formula-nerdometro'
 import { PAISES } from '@/data/paises'
 
 /** 0.65 → "0,65". Os números do texto saem do código; a vírgula é nossa. */
@@ -31,6 +37,8 @@ export function FormulaNerdometro() {
         <div dangerouslySetInnerHTML={{ __html: FORMULA_NOTA }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
         <div className="text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_FRACAO }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
+        <div className="text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_CONJUNTO }} />
       </div>
 
       {/* Fórmula sem legenda é charada. */}
@@ -49,6 +57,14 @@ export function FormulaNerdometro() {
         intocado fica fora do numerador <em>e</em> do denominador — é por isso que lançar jogo novo
         não derruba a nota de ninguém. A trava contra tirar 100 maxando um jogo só não está na
         fórmula, está na etiqueta “em N de M jogos” ali em cima.
+      </p>
+
+      <p>
+        E a <strong className="text-suave">estreia não conta</strong>: um jogo entra na soma a
+        partir da {PARTIDAS_NA_FORMULA}ª partida, ou já na primeira se ela bateu a meta. Uma
+        partida é amostra, não desempenho — sem isso, abrir um jogo para ver como é seria o ato
+        que derruba a sua nota, e o catálogo só cresce. Quem chegou à meta de primeira não precisa
+        provar de novo.
       </p>
 
       <p>

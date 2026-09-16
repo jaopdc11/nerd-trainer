@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { corDaNota, gradienteDaNota } from '@/core/escala'
 import {
   calcular,
@@ -14,6 +14,7 @@ import type {
   PassoParaSubir,
 } from '@/core/nerdometro'
 import { porCategoria } from '@/core/registry'
+import { useContagem } from '@/core/useContagem'
 import { href } from '@/core/route'
 import type { Banco } from '@/core/storage'
 import { ROTULO_CATEGORIA } from '@/core/types'
@@ -38,40 +39,6 @@ const textoEmGradiente = (nota: number): React.CSSProperties => ({
   color: 'transparent',
   textShadow: `0 0 24px color-mix(in oklch, ${corDaNota(nota)} 50%, transparent)`,
 })
-
-/**
- * Conta de 0 até o valor ao montar.
- *
- * O número subindo é o que faz o medidor parecer que mediu alguma coisa, em vez
- * de só exibir um campo. Usa `requestAnimationFrame` com easing de saída, e
- * respeita `prefers-reduced-motion` indo direto ao valor final.
- */
-function useContagem(alvo: number, duracaoMs = 900): number {
-  const [n, setN] = useState(0)
-
-  useEffect(() => {
-    const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduzido || alvo === 0) {
-      setN(alvo)
-      return
-    }
-
-    let quadro = 0
-    const inicio = performance.now()
-
-    const passo = (agora: number) => {
-      const t = Math.min(1, (agora - inicio) / duracaoMs)
-      // easeOutCubic: começa rápido e assenta, que é como um ponteiro se comporta.
-      setN(Math.round(alvo * (1 - (1 - t) ** 3)))
-      if (t < 1) quadro = requestAnimationFrame(passo)
-    }
-
-    quadro = requestAnimationFrame(passo)
-    return () => cancelAnimationFrame(quadro)
-  }, [alvo, duracaoMs])
-
-  return n
-}
 
 const RAIO = 54
 const GRAUS = 250
@@ -123,6 +90,15 @@ export function Nerdometro({ banco }: { banco: Banco }) {
             <Etiqueta className={m.jogados * 2 < m.total ? 'text-quase' : 'text-suave'}>
               em {m.jogados} de {m.total} jogos
             </Etiqueta>
+            {/* A carência precisa aparecer: sem isto, quem testou um jogo vê a
+                nota parada e fica procurando o bug. */}
+            {m.emExperiencia > 0 && (
+              <Etiqueta className="text-quase">
+                {m.emExperiencia === 1
+                  ? '1 em experiência — jogue de novo para entrar na nota'
+                  : `${m.emExperiencia} em experiência — jogue de novo para entrarem na nota`}
+              </Etiqueta>
+            )}
             <Etiqueta className="text-suave">{m.partidas} partidas</Etiqueta>
             <Etiqueta className="text-suave">{formatarTempo(m.tempoMs)} jogados</Etiqueta>
             {m.dominados > 0 && (

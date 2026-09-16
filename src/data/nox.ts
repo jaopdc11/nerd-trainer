@@ -86,6 +86,64 @@ export function exibirNox(valor: number): string {
   return valor > 0 ? `+${valor}` : `−${Math.abs(valor)}`
 }
 
+/** Fora desta faixa não existe nox de verdade, e a opção se eliminaria sozinha. */
+const FAIXA_MIN = -4
+const FAIXA_MAX = 7
+
+/** `nox()` sem explodir: devolve null onde o composto hipotético não fecha. */
+function tentar(c: Composto): number | null {
+  try {
+    return nox(c)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * As respostas erradas que um humano de fato marca, em ordem de prioridade.
+ *
+ * Distrator aleatório não mede nada: quem sabe a regra elimina "+9" sem pensar,
+ * e quem não sabe chuta igual. Os três primeiros da lista são erros com nome:
+ *
+ * 1. **a regra decorada** — "oxigênio é −2", "hidrogênio é +1", "halogênio é
+ *    −1". É o nível 2 inteiro: em `H₂O₂`, `NaH` e `OF₂` a resposta certa é
+ *    justamente a que contradiz isso, e a opção errada é o que o livro diria.
+ * 2. **a carga esquecida** — resolve o íon como se fosse neutro. É o erro do
+ *    nível 1, onde a soma fecha em −2 e não em zero.
+ * 3. **o sinal trocado** — acertou o módulo e errou de que lado ele está.
+ *
+ * Depois deles vêm os vizinhos, que só existem para completar as quatro opções
+ * quando os erros com nome não se aplicam ou caem em cima da resposta certa.
+ * Fica no dataset, e não no jogo, porque a lista é química: quem mexer nos
+ * compostos tem de ver os distratores na mesma tela.
+ */
+export function distratores(c: Composto): readonly number[] {
+  const certo = nox(c)
+  const decorada = FIXOS[c.alvo]
+  const semCarga = c.carga === 0 ? null : tentar({ ...c, carga: 0 })
+
+  const candidatos = [
+    ...(decorada === undefined ? [] : [decorada]),
+    ...(semCarga === null ? [] : [semCarga]),
+    -certo,
+    certo - 1,
+    certo + 1,
+    certo - 2,
+    certo + 2,
+    certo - 3,
+    certo + 3,
+  ]
+
+  const vistos = new Set<number>([certo])
+  const saida: number[] = []
+  for (const v of candidatos) {
+    if (v < FAIXA_MIN || v > FAIXA_MAX || vistos.has(v)) continue
+    vistos.add(v)
+    saida.push(v)
+  }
+  return saida
+}
+
 export const COMPOSTOS: readonly Composto[] = [
   // --- nível 0: óxidos e oxiácidos, a regra pura -----------------------------
   { formula: 'H₂SO₄', nome: 'ácido sulfúrico', alvo: 'S', atomos: [['H', 2], ['S', 1], ['O', 4]], carga: 0, nivel: 0 },

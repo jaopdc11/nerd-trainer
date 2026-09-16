@@ -33,6 +33,15 @@ export function FlashcardEngine({ jogo, config, onFinalizar, recorde, run }: Pro
           <Progresso sessao={sessao} recorde={recorde} />
           <Pergunta sessao={sessao} />
 
+          {/* Recado do jogo, e não retorno sobre a tecla: fica até o fim da
+              partida, em painel próprio e em tamanho de quem quer ser lido. É o
+              mesmo visual da grade, de propósito — é a mesma coisa. */}
+          {sessao.nota && (
+            <p className="motion-safe:animate-surgir rounded-xl border border-erro/40 bg-erro-fundo/30 px-4 py-2.5 text-center text-base font-semibold text-erro sm:text-lg">
+              {sessao.nota}
+            </p>
+          )}
+
           {sessao.carta.tipo === 'digitada' ? (
             <AnswerInput
               modo="linha"
@@ -227,7 +236,7 @@ function Fim({
   const zerou = sessao.total > 0 && sessao.acertos === sessao.total
 
   return (
-    <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-6">
+    <Painel className="cascata flex flex-col items-start gap-5 p-6">
       <h2 className="fonte-display text-2xl font-bold">
         {zerou ? (
           <span className="text-acento">Baralho inteiro!</span>
@@ -245,6 +254,7 @@ function Fim({
         total={sessao.total > 0 ? sessao.total : undefined}
         sufixo={jogo.unidade.plural}
         destacado={fim === 'superou'}
+        contar
       />
 
       <p className="font-mono text-sm text-tenue">

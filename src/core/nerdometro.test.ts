@@ -5,15 +5,28 @@ import type { PassoParaSubir } from './nerdometro'
 import type { Banco, Entrada } from './storage'
 import { CATEGORIAS } from './types'
 
+/**
+ * Jogo já estabelecido: duas partidas.
+ *
+ * Duas, e não uma, por causa da carência de estreia — a primeira partida não
+ * entra na nota (ver `PARTIDAS_PARA_ENTRAR`). Quem testa a carência usa
+ * `estreia()` logo abaixo; todo o resto quer um jogo que já conta, senão cada
+ * teste de fórmula estaria medindo a carência sem querer.
+ */
 function entrada(pontuacao: number): Entrada {
   return {
     recorde: { pontuacao, duracaoMs: 1000, erros: 0, completou: false, emISO: '2026-09-15T12:00:00.000Z' },
-    partidas: 1,
+    partidas: 2,
     ultimaPontuacao: pontuacao,
     ultimaEmISO: '2026-09-15T12:00:00.000Z',
     historico: [{ pontuacao, duracaoMs: 1000, erros: 0, emISO: '2026-09-15T12:00:00.000Z', runId: `r-${pontuacao}` }],
     ultimosRuns: [{ id: `r-${pontuacao}`, pontuacao }],
   }
+}
+
+/** Uma partida só: o jogo recém-aberto, ainda em experiência. */
+function estreia(pontuacao: number): Entrada {
+  return { ...entrada(pontuacao), partidas: 1 }
 }
 
 /** Banco com os jogos dados na fração pedida da própria meta. */
@@ -369,5 +382,69 @@ describe('banco vazio', () => {
     const m = calcular({ versao: 1, entradas: { pi: entrada(0) } })
     expect(m.jogados).toBe(0)
     expect(m.nota).toBe(0)
+  })
+})
+
+describe('a estreia não conta', () => {
+  it('uma partida só não entra na nota, e a tela diz que ele existe', () => {
+    // A queixa que isto resolve: abrir a notação científica, fazer 3 de 25 e ver
+    // a nota cair. Experimentar não pode custar nota.
+    const m = calcular({ versao: 1, entradas: { pi: entrada(50), 'ordem-de-grandeza': estreia(3) } })
+    const so = calcular({ versao: 1, entradas: { pi: entrada(50) } })
+
+    expect(m.nota).toBe(so.nota)
+    expect(m.jogados).toBe(1)
+    expect(m.emExperiencia).toBe(1)
+    expect(m.linhas.find((l) => l.jogoId === 'ordem-de-grandeza')?.naNota).toBe(false)
+  })
+
+  it('a segunda partida matricula o jogo, para o bem e para o mal', () => {
+    const ruim = calcular({ versao: 1, entradas: { pi: entrada(50), 'ordem-de-grandeza': entrada(3) } })
+    const so = calcular({ versao: 1, entradas: { pi: entrada(50) } })
+
+    expect(ruim.nota).toBeLessThan(so.nota)
+    expect(ruim.emExperiencia).toBe(0)
+    expect(ruim.jogados).toBe(2)
+  })
+
+  it('quem fecha o baralho na estreia entra na hora', () => {
+    // A regra crua dizia "fez 24 de 24 do alfabeto grego e não contou", que é
+    // pior que o problema que ela resolve. Chegou à meta, já provou.
+    const m = calcular({ versao: 1, entradas: { 'alfabeto-grego': estreia(24) } })
+    expect(m.linhas.find((l) => l.jogoId === 'alfabeto-grego')?.naNota).toBe(true)
+    expect(m.nota).toBe(100)
+    expect(m.emExperiencia).toBe(0)
+    expect(m.jogados).toBe(1)
+  })
+
+  it('passar da meta na estreia também vale — recorde acima de 100% conta igual', () => {
+    const m = calcular({ versao: 1, entradas: { nox: estreia(43) } })
+    expect(m.linhas.find((l) => l.jogoId === 'nox')?.naNota).toBe(true)
+    expect(m.nota).toBe(100)
+  })
+
+  it('a área e a matéria seguem a mesma régua da nota geral', () => {
+    const m = calcular({ versao: 1, entradas: { 'derivadas-rapidas': entrada(25), nox: estreia(5) } })
+    expect(m.areas.find((a) => a.area === 'velocidade')?.nota).toBe(100)
+    expect(m.categorias.find((c) => c.categoria === 'quimica')?.nota).toBeNull()
+    expect(m.categorias.find((c) => c.categoria === 'quimica')?.jogados).toBe(0)
+  })
+
+  it('o que subir a nota pode ser justamente voltar a um jogo em experiência', () => {
+    // Ele está fora da conta, mas pode ser recomendado: alcançar o alvo custa
+    // uma partida, e é ela que o matricula.
+    const base: Banco = { versao: 1, entradas: { pi: entrada(50), formulas: estreia(20) } }
+    const m = calcular(base)
+    const passo = m.comoSubir.find((p) => p.jogoId === 'formulas')
+    if (passo) {
+      const cumprido = {
+        ...base,
+        entradas: { ...base.entradas, formulas: entrada(passo.alvo) },
+      }
+      expect(calcular(cumprido).nota).toBeGreaterThanOrEqual(
+        m.proximaFaixa?.faixa.minimo as number,
+      )
+    }
+    expect(m.emExperiencia).toBe(1)
   })
 })

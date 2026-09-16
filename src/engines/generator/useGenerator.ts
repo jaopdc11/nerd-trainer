@@ -20,6 +20,16 @@ export type EstadoGerador = 'pronto' | 'jogando' | 'fim'
 /** Quanto tempo o gabarito fica na tela depois de um erro. */
 const PAUSA_DO_ERRO_MS = 900
 
+/**
+ * O mesmo, quando o exercício explica a resposta.
+ *
+ * 900 ms dão para ler "+6" e não dão para ler "peróxido: os dois oxigênios estão
+ * ligados entre si". A explicação existe para ser lida — se ela passa voando, é
+ * o mesmo que não ter. O relógio continua correndo, como sempre: a pausa é para
+ * aprender, não é crédito.
+ */
+const PAUSA_COM_EXPLICACAO_MS = 2400
+
 /** Quantas chaves recentes lembrar, para não repetir o mesmo exercício. */
 const JANELA_ANTI_REPETICAO = 8
 
@@ -157,7 +167,7 @@ export function useGenerator(
 
   /** Parte comum de acertar e errar, para digitado e escolha caírem no mesmo lugar. */
   const julgar = useCallback(
-    (certo: boolean, gabarito: string): Veredito => {
+    (certo: boolean, errado: Exercicio): Veredito => {
       if (certo) {
         const novos = acertos + 1
         setAcertos(novos)
@@ -168,11 +178,14 @@ export function useGenerator(
 
       setErros((e) => e + 1)
       // Mostra o gabarito por um instante: errar sem saber o certo não ensina.
-      setCorrecao(gabarito)
-      pausa.current = setTimeout(() => {
-        setCorrecao(null)
-        setExercicio(sortear(config.escala(acertos)))
-      }, PAUSA_DO_ERRO_MS)
+      setCorrecao(errado.gabarito)
+      pausa.current = setTimeout(
+        () => {
+          setCorrecao(null)
+          setExercicio(sortear(config.escala(acertos)))
+        },
+        errado.porque ? PAUSA_COM_EXPLICACAO_MS : PAUSA_DO_ERRO_MS,
+      )
       return 'errado'
     },
     [acertos, config, relogio, sortear],
@@ -183,7 +196,7 @@ export function useGenerator(
       if (estado !== 'jogando' || !exercicio || correcao !== null) return 'errado'
       if (exercicio.tipo !== 'digitado') return 'errado'
       const r = validar(texto, exercicio.resposta, { rigor: 'estrito' })
-      return julgar(r.veredito === 'certo', exercicio.gabarito)
+      return julgar(r.veredito === 'certo', exercicio)
     },
     [estado, exercicio, correcao, julgar],
   )
@@ -192,7 +205,7 @@ export function useGenerator(
     (indice: number): Veredito => {
       if (estado !== 'jogando' || !exercicio || correcao !== null) return 'errado'
       if (exercicio.tipo !== 'escolha') return 'errado'
-      return julgar(indice === exercicio.indiceCorreto, exercicio.gabarito)
+      return julgar(indice === exercicio.indiceCorreto, exercicio)
     },
     [estado, exercicio, correcao, julgar],
   )
@@ -208,7 +221,7 @@ export function useGenerator(
    */
   const pular = useCallback(() => {
     if (estado !== 'jogando' || !exercicio || correcao !== null) return
-    julgar(false, exercicio.gabarito)
+    julgar(false, exercicio)
   }, [estado, exercicio, correcao, julgar])
 
   const podeAutoCommitar = useCallback(

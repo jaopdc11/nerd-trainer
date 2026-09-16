@@ -163,6 +163,13 @@ function Enunciado({ sessao }: { sessao: SessaoGerador }) {
           era <strong className="text-acento">{sessao.correcao}</strong>
         </p>
       )}
+      {/* Só as armadilhas trazem isto: o valor sozinho não ensina por que a
+          regra decorada falhou ali. */}
+      {sessao.correcao !== null && sessao.exercicio?.porque && (
+        <p className="motion-safe:animate-surgir max-w-prose text-center text-sm text-tenue">
+          {sessao.exercicio.porque}
+        </p>
+      )}
     </Painel>
   )
 }
@@ -171,9 +178,12 @@ function Alternativas({ sessao }: { sessao: SessaoGerador }) {
   if (sessao.exercicio?.tipo !== 'escolha') return null
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    // Entrada escalonada, como no flashcard: quatro opções aparecendo juntas de
+    // supetão é um bloco piscando; uma atrás da outra o olho acompanha a ordem
+    // em que vai ler. O `--i` é o índice, e a `.escalonar` cuida do atraso.
+    <ul className="escalonar grid gap-3 sm:grid-cols-2">
       {sessao.exercicio.alternativas.map((alt, i) => (
-        <li key={`${sessao.exercicio?.chave}-${i}`}>
+        <li key={`${sessao.exercicio?.chave}-${i}`} style={{ '--i': i } as React.CSSProperties}>
           <button
             type="button"
             disabled={sessao.correcao !== null}
@@ -220,7 +230,7 @@ function Fim({
   const velocidade = taxa(sessao.acertos, sessao.duracaoMs, jogo.unidade)
 
   return (
-    <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-6">
+    <Painel className="cascata flex flex-col items-start gap-5 p-6">
       <h2 className="fonte-display text-2xl font-bold">
         {fim === 'superou' ? (
           <span className="text-acento">Recorde novo</span>
@@ -231,7 +241,12 @@ function Fim({
         )}
       </h2>
 
-      <Placar valor={sessao.acertos} sufixo={jogo.unidade.plural} destacado={fim === 'superou'} />
+      <Placar
+        valor={sessao.acertos}
+        sufixo={jogo.unidade.plural}
+        destacado={fim === 'superou'}
+        contar
+      />
 
       <p className="font-mono text-sm text-tenue">
         {duracao(sessao.duracaoMs)}

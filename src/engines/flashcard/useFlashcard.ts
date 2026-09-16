@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { completaSemAmbiguidade, formasDeAutoCommit, validar } from '@/core/answer'
+import { normalizarTexto } from '@/core/answer/normalize'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
 import { useSaveOnExit } from '@/core/useSaveOnExit'
@@ -28,6 +29,11 @@ export interface SessaoFlashcard {
   readonly posicao: number
   /** Gabarito mostrado após erro; `null` enquanto ele responde. */
   readonly correcao: string | null
+  /**
+   * Recado preso a uma carta que já saiu. Fica na tela até o fim da partida,
+   * como na grade: é coisa que o jogo tem a dizer, não retorno sobre a tecla.
+   */
+  readonly nota: string | null
   readonly duracaoMs: number
   iniciar(): void
   responder(texto: string): Veredito
@@ -48,6 +54,7 @@ export function useFlashcard(
   const [acertos, setAcertos] = useState(0)
   const [erros, setErros] = useState(0)
   const [correcao, setCorrecao] = useState<string | null>(null)
+  const [nota, setNota] = useState<string | null>(null)
   const [duracaoMs, setDuracaoMs] = useState(0)
 
   const inicio = useRef(0)
@@ -94,6 +101,7 @@ export function useFlashcard(
     setAcertos(0)
     setErros(0)
     setCorrecao(null)
+    setNota(null)
     setDuracaoMs(0)
     runId.current = novoRunId()
     inicio.current = performance.now()
@@ -112,7 +120,12 @@ export function useFlashcard(
   )
 
   const julgar = useCallback(
-    (veredito: Veredito, gabarito: string): Veredito => {
+    (veredito: Veredito, resolvida: Carta): Veredito => {
+      const gabarito = resolvida.gabarito
+      // A carta saiu: se ela tem algo a dizer, diz agora — tenha sido acerto,
+      // erro ou "não sei". O recado é sobre a resposta, não sobre o placar.
+      if (resolvida.aviso) setNota(resolvida.aviso)
+
       // 'quase' (typo perdoado, caixa errada em treino) conta como acerto, mas
       // a UI mostra a grafia certa — ensina sem punir.
       if (veredito !== 'errado') {
@@ -157,11 +170,31 @@ export function useFlashcard(
             : [])),
       )
 
+      /*
+       * E sai dali tudo que também é resposta DESTA carta.
+       *
+       * O filtro acima é por `id`, e id não é resposta: num baralho em que o
+       * mesmo autor responde por várias cartas — Kant tem três na filosofia,
+       * Nietzsche quatro, Tarsila quatro nas pinturas —, a resposta certa
+       * entrava na própria vizinhança. O texto encostava em duas cartas ao
+       * mesmo tempo, o validador chamava de ambíguo, e **a tolerância a erro de
+       * digitação estava morta para todo autor repetido**: "Schumpetter" era
+       * recusado porque Schumpeter tem duas cartas. A grade sempre fez esta
+       * subtração (ver `useGrid`); aqui faltava, e ninguém tinha percebido
+       * porque os baralhos antigos quase não repetem resposta.
+       */
+      if (carta.resposta.tipo === 'texto') {
+        const minhas = new Set(carta.resposta.aceitas.map((a) => normalizarTexto(a)))
+        for (const forma of vizinhanca) {
+          if (minhas.has(normalizarTexto(forma))) vizinhanca.delete(forma)
+        }
+      }
+
       // Estrito pelo mesmo motivo da grade: nos modos de símbolo (grego, SI) a
       // caixa é a resposta — σ não é Σ, k não é K. A misericórdia com erro de
       // digitação em texto continua valendo, porque não depende do rigor.
       const r = validar(texto, carta.resposta, { rigor: 'estrito', vizinhanca })
-      return julgar(r.veredito, carta.gabarito)
+      return julgar(r.veredito, carta)
     },
     [carta, correcao, baralho, julgar],
   )
@@ -170,7 +203,7 @@ export function useFlashcard(
     (indice: number): Veredito => {
       if (!carta || carta.tipo !== 'escolha' || correcao !== null) return 'errado'
       const certo = indice === carta.indiceCorreto
-      return julgar(certo ? 'certo' : 'errado', carta.gabarito)
+      return julgar(certo ? 'certo' : 'errado', carta)
     },
     [carta, correcao, julgar],
   )
@@ -190,7 +223,7 @@ export function useFlashcard(
    */
   const pular = useCallback(() => {
     if (estado !== 'jogando' || !carta || correcao !== null) return
-    julgar('errado', carta.gabarito)
+    julgar('errado', carta)
   }, [estado, carta, correcao, julgar])
 
   const podeAutoCommitar = useCallback(
@@ -223,6 +256,7 @@ export function useFlashcard(
     clearTimeout(pausa.current)
     setEstado('pronto')
     setCorrecao(null)
+    setNota(null)
   }, [])
 
   return {
@@ -233,6 +267,7 @@ export function useFlashcard(
     total: baralho.length,
     posicao,
     correcao,
+    nota,
     duracaoMs,
     iniciar,
     responder,

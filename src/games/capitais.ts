@@ -1,62 +1,91 @@
 import { CAPITAIS, formasAceitas } from '@/data/capitais'
 import type { Capital } from '@/data/capitais'
 import { PAISES } from '@/data/paises'
-import type { Carta, JogoFlashcard } from '@/core/types'
+import { ALTURA_MAPA, FORMAS, INERTES, LARGURA_MAPA } from '@/data/paises-mapa'
+import { AVISOS } from './avisos'
+import type { CelulaGrade, JogoGrade } from '@/core/types'
 
 /**
- * País → capital, digitado, baralho de 195 cartas.
+ * As capitais do mundo, digitadas em ordem livre sobre o mapa-múndi.
  *
- * É o par do "Países do mundo": lá o desafio é *onde fica*, aqui é *quem manda*.
- * Mecânica C sem nada de novo — o país aparece como texto, você escreve a
- * capital, o baralho vai até o fim e errar custa o ponto, não a partida.
+ * É o mesmo tabuleiro do "Países do mundo" com a pergunta virada do avesso: lá
+ * você diz o país e o país acende; aqui você diz **a capital** e quem acende é o
+ * país que ela governa. O mapa deixa de ser ilustração e vira o placar — dá para
+ * ver a África inteira apagada e saber exatamente o que falta estudar.
  *
- * **Sem relógio**, pela régua do projeto: card onde digitar é o obstáculo,
- * digitação onde o desafio é lembrar. "Uagadugu" não é difícil de escrever, é
- * difícil de lembrar — e quatro alternativas entregariam a resposta por
- * reconhecimento. Sem tempo, escrever por extenso não castiga ninguém.
+ * Foi flashcard antes, e como flashcard não funcionava: o card mostrava um país
+ * por vez e o baralho de 204 cartas passava obrigando a pular país por país, sem
+ * nunca mostrar o todo. Nomear em ordem livre é outro jogo — você despeja o que
+ * sabe, na ordem em que lembra, e o que sobra no mapa é o diagnóstico.
  *
- * **A tolerância a erro de digitação fica ligada**, ao contrário do mapa. Lá os
- * 195 nomes de país competem entre si na mesma tela e a tolerância aceitaria o
- * vizinho; aqui a trava de vizinhança do validador já recebe as formas de todas
- * as outras cartas do baralho, então "kingstow" não vira ponto nem para Kingston
- * nem para Kingstown — é ambígua, e ambiguidade não é resolvida a favor do
- * jogador. O que sobra da tolerância é o que ela deve ser: misericórdia com
- * "Antananarivo" e "Bandar Seri Begawan", que têm dezoito caracteres e nenhum
- * vizinho. `capitais.test.ts` enumera os pares perigosos para que a decisão
- * continue medida e não suposta.
+ * **Quinze minutos**, o mesmo do irmão, e de propósito: são os mesmos 204
+ * alvos, e ter dois relógios diferentes para o mesmo tabuleiro só faria os dois
+ * placares deixarem de ser comparáveis.
+ *
+ * `tolerarTypo` fica ligado, como no mapa de países, e pelo mesmo motivo: a
+ * trava de vizinhança do validador recebe as formas de todas as outras células,
+ * então "kingstow" não vira ponto nem para Kingston nem para Kingstown — os dois
+ * únicos nomes a um caractere de distância no baralho inteiro, medidos em
+ * `data/capitais.test.ts`. O que sobra da tolerância é misericórdia com
+ * "Antananarivo" e "Bandar Seri Begawan", que ninguém digita em quinze minutos
+ * de corrida sem trocar uma letra.
  */
-export const capitais: JogoFlashcard = {
+export const capitais: JogoGrade = {
   id: 'capitais',
-  mecanica: 'flashcard',
+  mecanica: 'grade',
   nome: 'Capitais do mundo',
   icone: '🏛',
-  resumo: 'As 195: aparece o país, você escreve a capital.',
+  resumo: 'Digite capitais e veja o país de cada uma acender no mapa.',
   categoria: 'geografia',
   unidade: { singular: 'capital', plural: 'capitais' },
   comoJogar: [
-    'O baralho vai até o fim: errar custa o ponto, não a partida.',
+    'Quinze minutos. Digite capitais em qualquer ordem e o país de cada uma acende.',
     'Acento e maiúscula não importam; "Kabul", "Beijing" e "Madrid" também valem.',
     'Onde há mais de uma sede — África do Sul, Bolívia, Países Baixos —, qualquer uma vale.',
+    'No fim, o gabarito vem por continente: em verde o que saiu, em vermelho o que faltou.',
   ],
   config: () => ({
-    montarBaralho: (rng) =>
-      rng.shuffle(PAISES).map((p): Carta => {
-        // `CAPITAIS` cobre os 195 ids, e o teste do dataset é quem garante isso:
-        // um país sem capital quebra lá, não aqui em cima do jogador.
-        const capital = CAPITAIS[p.id] as Capital
-        return {
-          tipo: 'digitada',
-          id: `capital-${p.id}`,
-          pergunta: { kind: 'texto', valor: p.nome },
-          resposta: {
-            tipo: 'texto',
-            canonica: capital.nome,
-            aceitas: formasAceitas(capital),
-          },
-          gabarito: capital.nome,
-        }
-      }),
-    fim: 'baralho',
+    // Herdados da grade de células e ignorados no layout de mapa.
+    linhas: 1,
+    colunas: 1,
+    layout: {
+      tipo: 'mapa',
+      largura: LARGURA_MAPA,
+      altura: ALTURA_MAPA,
+      inertes: INERTES,
+    },
+    limiteSegundos: 900,
+    marcos: [
+      {
+        ids: PAISES.filter((p) => p.soberano).map((p) => p.id),
+        texto: 'As 195 capitais da ONU, todas. O que sobrou no mapa é bônus.',
+      },
+    ],
+    celulas: PAISES.map((p): CelulaGrade => {
+      // `CAPITAIS` cobre os mesmos ids de `PAISES`, e o teste do dataset é quem
+      // garante: um país sem capital seria célula sem resposta possível.
+      const capital = CAPITAIS[p.id] as Capital
+
+      return {
+        id: p.id,
+        linha: 1,
+        coluna: 1,
+        forma: FORMAS[p.id],
+        secao: p.continente,
+        ...(AVISOS[p.id] ? { aviso: AVISOS[p.id] } : {}),
+        // O país entra no gabarito junto da capital: no fim da partida, "Gitega"
+        // sozinho não diz a quem olha o mapa que o Burundi é que ficou vermelho.
+        gabarito: `${capital.nome} (${p.nome})`,
+        detalhe: `${capital.nome} — ${p.nome}`,
+        resposta: {
+          tipo: 'texto',
+          canonica: capital.nome,
+          aceitas: formasAceitas(capital),
+        },
+      }
+    }),
     teclado: 'texto',
+    ordem: 'livre',
+    mostrarRotulos: false,
   }),
 }

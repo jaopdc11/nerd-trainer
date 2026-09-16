@@ -158,3 +158,77 @@ describe('pular a carta que ele não sabe', () => {
     })
   })
 })
+
+describe('recado preso a uma carta', () => {
+  const COM_AVISO: ConfigFlashcard = {
+    ...BARALHO,
+    montarBaralho: () => [{ ...carta('c1', 'alfa'), aviso: 'o jogo tem algo a dizer' }, CARTAS[1] as Carta],
+  }
+
+  it('só aparece depois que a carta sai', () => {
+    const { hook } = montar(COM_AVISO)
+    expect(hook.result.current.nota).toBeNull()
+
+    responder(hook, 'alfa')
+    expect(hook.result.current.nota).toBe('o jogo tem algo a dizer')
+  })
+
+  it('aparece também quando a carta é pulada, e fica na tela', () => {
+    // O recado é sobre a resposta, não sobre o placar: quem pulou Israel
+    // continua tendo de ler o que o jogo tem a dizer.
+    const { hook } = montar(COM_AVISO)
+    act(() => {
+      hook.result.current.pular()
+    })
+    expect(hook.result.current.nota).toBe('o jogo tem algo a dizer')
+
+    responder(hook, 'beta')
+    expect(hook.result.current.nota, 'não some na carta seguinte').toBe('o jogo tem algo a dizer')
+  })
+
+  it('some quando a partida recomeça', () => {
+    const { hook } = montar(COM_AVISO)
+    responder(hook, 'alfa')
+    act(() => {
+      hook.result.current.iniciar()
+    })
+    expect(hook.result.current.nota).toBeNull()
+  })
+})
+
+describe('autor que responde por várias cartas', () => {
+  /**
+   * Regressão: a vizinhança era montada por `id`, e id não é resposta.
+   *
+   * Com duas cartas do mesmo autor, a resposta certa entrava na própria
+   * vizinhança e qualquer erro de digitação virava "ambíguo" — a tolerância
+   * morria justamente nos baralhos que mais repetem resposta (filosofia,
+   * sociologia, pinturas).
+   */
+  const MESMO_AUTOR: ConfigFlashcard = {
+    ...BARALHO,
+    montarBaralho: () => [
+      { ...carta('p1', 'Schumpeter'), pergunta: { kind: 'texto', valor: 'destruição criadora' } },
+      { ...carta('p2', 'Schumpeter'), pergunta: { kind: 'texto', valor: 'empreendedor' } },
+      carta('p3', 'Keynes'),
+    ],
+  }
+
+  it('perdoa a letra trocada mesmo com a carta irmã no baralho', () => {
+    const { hook } = montar(MESMO_AUTOR)
+    responder(hook, 'Schumpetter')
+    expect(hook.result.current.acertos).toBe(1)
+    expect(hook.result.current.erros).toBe(0)
+  })
+
+  it('e continua recusando o que encosta na resposta de OUTRA carta', () => {
+    // A trava que a vizinhança existe para dar não pode ter ido junto.
+    const { hook } = montar({
+      ...BARALHO,
+      montarBaralho: () => [carta('v1', 'Kingston'), carta('v2', 'Kingstown')],
+    })
+    responder(hook, 'Kingstoen')
+    expect(hook.result.current.acertos).toBe(0)
+    expect(hook.result.current.erros).toBe(1)
+  })
+})

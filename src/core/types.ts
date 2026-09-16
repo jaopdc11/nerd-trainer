@@ -101,6 +101,20 @@ export interface ConfigSequencia {
   readonly entrada: 'caractere' | 'termo'
   readonly teclado: Teclado
 
+  /**
+   * Como julgar o item de cada posição. Ausente = pelo `entrada`, que é o que
+   * as sequências numéricas sempre fizeram: caractere vira 'digito', termo
+   * vira 'inteiroGrande'.
+   *
+   * Existe porque nem toda sequência é de número. "Rússia, Canadá, China" em
+   * ordem de área é uma sequência tão legítima quanto as casas de π, e sem isto
+   * ela morria no primeiro item — `limparInteiro` devolvia 'nao-numerico' para
+   * um nome de país e a engine encerrava a partida. O ponto de extensão é a
+   * espec inteira, e não um `tipo` solto, porque resposta de texto carrega
+   * sinônimos e opções ("EUA" por "Estados Unidos") que só o jogo conhece.
+   */
+  readonly respostaEm?: (indice: number) => EspecResposta
+
   /** Mostrado antes do primeiro item digitável, e não faz parte da resposta. */
   readonly prefixo?: string
   /** Separador entre itens na fita. "" para dígitos, ", " para inteiros. */
@@ -207,6 +221,14 @@ export type Conteudo =
    */
   | { readonly kind: 'imagem'; readonly valor: string; readonly alt: string }
 
+/**
+ * Recado que o jogo tem a dizer quando esta carta sai — acertada, errada ou
+ * pulada, tanto faz.
+ *
+ * O gêmeo do `aviso` de `CelulaGrade`, e existe pela mesma razão: o jogo pode
+ * ter uma posição sobre uma resposta sem deixar de aceitá-la. A carta pontua
+ * normalmente; o recado aparece ao lado e fica até o fim da partida.
+ */
 export type Carta =
   | {
       readonly tipo: 'digitada'
@@ -215,6 +237,7 @@ export type Carta =
       readonly dica?: string
       readonly resposta: EspecResposta
       readonly gabarito: string
+      readonly aviso?: string
     }
   | {
       readonly tipo: 'escolha'
@@ -223,6 +246,7 @@ export type Carta =
       readonly alternativas: readonly Conteudo[]
       readonly indiceCorreto: number
       readonly gabarito: string
+      readonly aviso?: string
     }
 
 export interface ConfigFlashcard {
@@ -244,6 +268,15 @@ interface ExercicioBase {
   readonly chave: string
   readonly enunciado: Conteudo
   readonly gabarito: string
+  /**
+   * Por que a resposta é aquela, mostrado junto do gabarito depois de um erro.
+   *
+   * Existe para as armadilhas: em `H₂O₂` saber que o oxigênio vale −1 sem saber
+   * que é peróxido não ensina nada, e quem errou erra igual da próxima vez. Fica
+   * fora de `gabarito` porque gabarito é a resposta e mais nada — no exercício
+   * de escolha ele tem de bater exatamente com a alternativa certa.
+   */
+  readonly porque?: string
 }
 
 /**

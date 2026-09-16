@@ -4,6 +4,7 @@ import { mulberry32 } from '@/core/rng'
 import type { Exercicio } from '@/core/types'
 import { gerarAritmetica, NIVEL_MAX } from './aritmetica'
 import { gerarDerivada } from './derivadas-rapidas'
+import { gerarNox } from './nox'
 import { gerarOrdemDeGrandeza, normalizar } from './ordem-grandeza'
 
 const ESTRITO = { rigor: 'estrito' } as const
@@ -154,6 +155,39 @@ describe('gerador de derivadas', () => {
       if (temExpoenteMaior || expoenteDoGabarito) achou++
     }
     expect(achou).toBeGreaterThan(0)
+  })
+})
+
+describe('gerador de nox', () => {
+  it('sempre produz quatro alternativas distintas, com a certa entre elas', () => {
+    for (let nivel = 0; nivel <= 2; nivel++) {
+      for (const e of amostra(gerarNox, nivel)) {
+        if (e.tipo !== 'escolha') throw new Error(`${e.chave} devia ser de escolha`)
+        expect(e.alternativas, e.chave).toHaveLength(4)
+        expect(gabaritoPassa(e), `${e.chave} → ${e.gabarito}`).toBe(true)
+        const valores = e.alternativas.map((a) => a.valor)
+        expect(new Set(valores).size, `${e.chave}: ${valores.join(' | ')}`).toBe(4)
+      }
+    }
+  })
+
+  it('escreve toda opção com sinal, no formato do gabarito', () => {
+    for (const e of amostra(gerarNox, 2)) {
+      if (e.tipo !== 'escolha') continue
+      for (const a of e.alternativas) {
+        expect(a.valor, `${e.chave}: ${a.valor}`).toMatch(/^(0|[+−]\d)$/)
+      }
+    }
+  })
+
+  it('explica a resposta nas armadilhas, e só nelas', () => {
+    // O "porquê" é o que separa o nível 2: saber que em H₂O₂ o oxigênio é −1 sem
+    // saber que é peróxido não sobrevive à próxima carta.
+    const comExplicacao = amostra(gerarNox, 2, 200).filter((e) => e.porque !== undefined)
+    expect(comExplicacao.length).toBeGreaterThan(0)
+    for (const e of amostra(gerarNox, 0, 200)) {
+      expect(e.porque, e.chave).toBeUndefined()
+    }
   })
 })
 

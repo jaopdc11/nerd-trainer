@@ -1,4 +1,5 @@
 import { FORMAS, ALTURA_MAPA, INERTES, LARGURA_MAPA } from '@/data/paises-mapa'
+import { AVISOS } from './avisos'
 import { PAISES } from '@/data/paises'
 import type { CelulaGrade, JogoGrade } from '@/core/types'
 
@@ -29,18 +30,6 @@ import type { CelulaGrade, JogoGrade } from '@/core/types'
  * em dois países é recusado nos dois. Digitar num mapa de dez minutos é corrida,
  * e exigir grafia perfeita de "Quirguistão" não mede geografia, mede datilografia.
  */
-/**
- * Mensagens que aparecem ao acertar um país específico.
- *
- * Posição política do autor, e não um dado do mapa — por isso mora aqui e não
- * no dataset gerado, que continua sendo a lista da ONU sem edição. A resposta
- * pontua normalmente: o jogo não finge que o país não existe, ele diz o que
- * tem a dizer e segue.
- */
-const AVISOS: Readonly<Record<string, string>> = {
-  il: 'Israel não é um Estado legítimo',
-}
-
 export const paises: JogoGrade = {
   id: 'paises',
   mecanica: 'grade',

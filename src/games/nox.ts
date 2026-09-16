@@ -1,38 +1,42 @@
-import { COMPOSTOS, exibirNox, nox } from '@/data/nox'
+import { COMPOSTOS, distratores, exibirNox, nox } from '@/data/nox'
 import type { Composto } from '@/data/nox'
 import type { Rng } from '@/core/rng'
-import type { Exercicio, JogoGerador } from '@/core/types'
+import type { Conteudo, Exercicio, JogoGerador } from '@/core/types'
 
 /**
- * Número de oxidação contra o relógio.
+ * Número de oxidação contra o relógio, em quatro opções.
  *
  * O enunciado é sempre o mesmo formato — "nox do S em H₂SO₄" — e a dificuldade
  * mora no composto, não na pergunta. Três degraus: a regra pura nos óxidos e
  * oxiácidos, a soma fechando numa carga nos íons, e por fim os casos em que a
  * regra decorada trai (peróxido, hidreto, `OF₂`).
  *
- * Pede Enter, pelo mesmo motivo da ordem de grandeza: "+6" e "6" são a mesma
- * resposta e não dá para saber, na primeira tecla, se o que vem é um sinal.
+ * **Era digitado, e o digitado atrapalhava.** A resposta é um inteiro curto com
+ * sinal, então metade da interação virava disputa de formato — "+6" ou "6",
+ * "−2" com o menos que o teclado não tem —, e ainda pedia Enter porque não dava
+ * para saber, na primeira tecla, se o que vinha era um sinal. Com opções, o item
+ * volta a cobrar só a conta: o clique é imediato e o relógio anda.
+ *
+ * Os distratores é que são a parte séria, e por isso moram no dataset: são os
+ * três erros com nome — a regra decorada, a carga esquecida e o sinal trocado.
+ * Ver `distratores()` em `data/nox.ts`.
  */
 
-function exercicio(c: Composto): Exercicio {
+function exercicio(rng: Rng, c: Composto): Exercicio {
   const valor = nox(c)
+  const opcoes = rng.shuffle([valor, ...distratores(c).slice(0, 3)])
+  const certo = exibirNox(valor)
 
   return {
-    tipo: 'digitado',
+    tipo: 'escolha',
     chave: `nox:${c.formula}:${c.alvo}`,
     enunciado: { kind: 'texto', valor: `nox do ${c.alvo} em ${c.formula}` },
-    resposta: {
-      tipo: 'numero',
-      mantissa: String(Math.abs(valor)),
-      expoente: 0,
-      negativo: valor < 0,
-      sigMin: 1,
-    },
+    alternativas: opcoes.map((v): Conteudo => ({ kind: 'texto', valor: exibirNox(v) })),
+    indiceCorreto: opcoes.indexOf(valor),
+    gabarito: certo,
     // Nas armadilhas a resposta sozinha não ensina nada: quem errou precisa do
     // motivo, senão erra igual da próxima vez.
-    gabarito: c.porque ? `${exibirNox(valor)} — ${c.porque}` : exibirNox(valor),
-    teclado: 'texto',
+    ...(c.porque ? { porque: c.porque } : {}),
   }
 }
 
@@ -45,7 +49,7 @@ export function gerarNox(rng: Rng, nivel: number): Exercicio {
   const atuais = POR_NIVEL[n] ?? []
   // O nível novo entra em dobro: acumula os anteriores sem afogá-los.
   const sorteio = [...POR_NIVEL.slice(0, n).flat(), ...atuais, ...atuais]
-  return exercicio(rng.pick(sorteio))
+  return exercicio(rng, rng.pick(sorteio))
 }
 
 export const numeroDeOxidacao: JogoGerador = {
@@ -57,9 +61,10 @@ export const numeroDeOxidacao: JogoGerador = {
   categoria: 'quimica',
   unidade: { singular: 'acerto', plural: 'acertos' },
   comoJogar: [
-    'Responda com o sinal: "+6" ou "6" valem igual, "−2" precisa do menos.',
-    'Enter confirma — sem ele não dá para saber se você ia digitar um sinal.',
+    'Escolha o nox certo entre as quatro opções — com sinal.',
+    'As erradas são os erros clássicos: a regra decorada, a carga esquecida, o sinal trocado.',
     'Nos níveis finais aparecem peróxido, hidreto e OF₂, onde a regra decorada trai.',
+    'Cada acerto devolve 5 segundos ao relógio.',
   ],
   config: () => ({
     gerar: gerarNox,

@@ -7,6 +7,7 @@ import type { Item } from '@/data/pensadores'
 import { PAISES } from '@/data/paises'
 import type { Pais } from '@/data/paises'
 import { PREFIXOS_SI } from '@/data/prefixos-si'
+import { AVISOS } from './avisos'
 import type { Rng } from '@/core/rng'
 import type { Carta, JogoFlashcard } from '@/core/types'
 
@@ -353,6 +354,9 @@ function cartaBandeira(p: Pais): Carta {
       valor: `${import.meta.env.BASE_URL}bandeiras/${p.id}.svg`,
       alt: 'Bandeira a identificar',
     },
+    // O mesmo recado dos dois mapas, na mesma lista: uma posição dessas não
+    // pode valer num tabuleiro e sumir aqui porque o jogo é de outro tipo.
+    ...(AVISOS[p.id] ? { aviso: AVISOS[p.id] } : {}),
     resposta: {
       tipo: 'texto',
       canonica: p.nome,

@@ -29,6 +29,7 @@
     "tailwindcss": "^4.3.0",
     "topojson-client": "^3.1.0",
     "typescript": "~6.0.2",
+    "us-atlas": "^3.0.1",
     "vite": "^8.0.12",
     "vitest": "^5.0.1",
     "world-atlas": "^2.0.2",

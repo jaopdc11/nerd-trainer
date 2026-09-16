@@ -33,7 +33,16 @@ export function App() {
     <div
       className={`mx-auto flex min-h-dvh w-full flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 ${largura}`}
     >
-      <div className="flex-1">
+      {/*
+        A `key` é a rota inteira, e é ela que faz a animação existir: sem
+        remontar, o React reaproveita o nó e a tela nova simplesmente troca de
+        conteúdo no lugar, sem entrada nenhuma. Trocar de jogo também conta como
+        tela nova — daí o id estar na chave.
+      */}
+      <div
+        key={rota.nome === 'jogo' ? `jogo:${rota.jogoId}:${rota.modoId ?? ''}` : rota.nome}
+        className="motion-safe:animate-entrar-tela flex-1"
+      >
         {rota.nome === 'jogo' ? (
           <Jogo jogoId={rota.jogoId} modoId={rota.modoId} />
         ) : rota.nome === 'recordes' ? (

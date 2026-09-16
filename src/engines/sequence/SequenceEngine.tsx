@@ -206,7 +206,7 @@ function Revisao({
   const sep = config.separador ?? ''
 
   return (
-    <Painel className="motion-safe:animate-surgir flex flex-col gap-5 p-5">
+    <Painel className="cascata flex flex-col gap-5 p-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="fonte-display text-xl font-bold">
           {completou ? (

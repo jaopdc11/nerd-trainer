@@ -123,9 +123,10 @@ export function useSequence(
       }
 
       const espec: EspecResposta =
-        config.entrada === 'caractere'
+        config.respostaEm?.(indice) ??
+        (config.entrada === 'caractere'
           ? { tipo: 'digito', valor: esperado }
-          : { tipo: 'inteiroGrande', valor: esperado }
+          : { tipo: 'inteiroGrande', valor: esperado })
 
       // Rigor sempre estrito: aqui o dígito É o conhecimento. Tolerar erro de
       // digitação em pi seria aceitar que ele não sabe pi.
@@ -148,7 +149,7 @@ export function useSequence(
       }
       return 'certo'
     },
-    [estado, indice, itemEm, config.entrada, finalizar],
+    [estado, indice, itemEm, config.entrada, config.respostaEm, finalizar],
   )
 
   // Saiu no meio: as casas que ele já acertou contam como partida.
