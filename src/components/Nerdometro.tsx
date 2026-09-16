@@ -1,69 +1,49 @@
 import { useEffect, useState } from 'react'
-import { calcular, DESCRICAO_AREA, FAIXAS, ROTULO_AREA } from '@/core/nerdometro'
-import type { LinhaNerdometro, NotaArea } from '@/core/nerdometro'
+import { corDaNota, gradienteDaNota } from '@/core/escala'
+import {
+  calcular,
+  CRITERIOS,
+  CURVA,
+  DESCRICAO_AREA,
+  FAIXAS,
+  ROTULO_AREA,
+} from '@/core/nerdometro'
+import type {
+  LinhaNerdometro,
+  NotaArea,
+  NotaCategoria,
+  PassoParaSubir,
+} from '@/core/nerdometro'
+import { porCategoria } from '@/core/registry'
 import { href } from '@/core/route'
 import type { Banco } from '@/core/storage'
-import { Etiqueta } from './ui'
+import { ROTULO_CATEGORIA } from '@/core/types'
+import type { Categoria } from '@/core/types'
+import { PI_DECIMAIS } from '@/data/constantes-matematicas'
+import { PAISES } from '@/data/paises'
+import { CORES_CATEGORIA, Etiqueta } from './ui'
+
+/** 0.65 → "0,65". Os números do texto saem do código; a vírgula é nossa. */
+const br = (n: number) => String(n).replace('.', ',')
+
+const metaDe = (jogoId: string) => CRITERIOS.find((c) => c.jogoId === jogoId)?.meta ?? 0
 
 /**
- * A escala de cor do medidor, do azul calmo à brasa.
+ * O gradiente sobre o próprio texto.
  *
- * São stops escolhidos à mão, não um matiz girando. Rodar só o hue com
- * luminosidade e croma fixos dá uma cor chapada — parece `color: purple` —
- * porque cor bonita de interface varia nos três eixos: o começo da escala é
- * dessaturado e frio, e o croma vai subindo até o topo "queimar".
- *
- * O caminho é crescente no círculo (248° → 388°=28°), passando por violeta,
- * roxo e magenta. O atalho pelo outro lado atravessaria a faixa 100°–140°,
- * onde nesta luminosidade só existe verde-limão ácido.
+ * O anterior era o mesmo matiz, `L+0.12` a `L-0.06`, e não lia como gradiente:
+ * lia como texto mal iluminado, com a ponta escura afundando no fundo quase
+ * preto. Agora o matiz e o croma andam de verdade, porque as pontas vêm de
+ * duas notas diferentes. O brilho devolve o neon que o `color: transparent` do
+ * recorte tinha matado — sem ele o título é a única coisa da tela que não
+ * acende.
  */
-interface Stop {
-  readonly em: number
-  readonly l: number
-  readonly c: number
-  readonly h: number
-}
-
-const ESCALA: readonly Stop[] = [
-  { em: 0, l: 0.72, c: 0.1, h: 248 },
-  { em: 20, l: 0.75, c: 0.12, h: 270 },
-  { em: 40, l: 0.74, c: 0.15, h: 298 },
-  { em: 60, l: 0.72, c: 0.18, h: 328 },
-  { em: 80, l: 0.7, c: 0.2, h: 358 },
-  { em: 100, l: 0.66, c: 0.22, h: 388 },
-]
-
-function interpolar(nota: number): Stop {
-  const n = Math.max(0, Math.min(100, nota))
-  const fim = ESCALA.findIndex((s) => s.em >= n)
-  const b = ESCALA[fim === -1 ? ESCALA.length - 1 : fim] as Stop
-  const a = (fim <= 0 ? b : ESCALA[fim - 1]) as Stop
-
-  const t = b.em === a.em ? 0 : (n - a.em) / (b.em - a.em)
-  return {
-    em: n,
-    l: a.l + (b.l - a.l) * t,
-    c: a.c + (b.c - a.c) * t,
-    h: a.h + (b.h - a.h) * t,
-  }
-}
-
-function corDaNota(nota: number, ajusteL = 0): string {
-  const s = interpolar(nota)
-  return `oklch(${(s.l + ajusteL).toFixed(3)} ${s.c.toFixed(3)} ${(s.h % 360).toFixed(1)})`
-}
-
-/** Gradiente para texto: o mesmo tom, do mais claro ao mais escuro. */
-function gradienteDaNota(nota: number): string {
-  return `linear-gradient(135deg, ${corDaNota(nota, 0.12)}, ${corDaNota(nota, -0.06)})`
-}
-
-/** Aplica o gradiente sobre o próprio texto. */
 const textoEmGradiente = (nota: number): React.CSSProperties => ({
   backgroundImage: gradienteDaNota(nota),
   WebkitBackgroundClip: 'text',
   backgroundClip: 'text',
   color: 'transparent',
+  textShadow: `0 0 24px color-mix(in oklch, ${corDaNota(nota)} 50%, transparent)`,
 })
 
 /**
@@ -130,13 +110,26 @@ export function Nerdometro({ banco }: { banco: Banco }) {
           </div>
 
           {m.proximaFaixa && (
-            <p className="text-sm text-tenue">
-              faltam <strong className="font-mono text-texto">{m.proximaFaixa.falta}</strong> para{' '}
-              <span className="text-suave">{m.proximaFaixa.faixa.titulo}</span>
-            </p>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm text-tenue">
+                faltam <strong className="font-mono text-texto">{m.proximaFaixa.falta}</strong> para{' '}
+                <span className="text-suave">{m.proximaFaixa.faixa.titulo}</span>
+              </p>
+              <ComoSubir
+                passos={m.comoSubir}
+                maisDeUmJogo={m.subirPedeMaisDeUmJogo}
+                nota={m.nota}
+              />
+            </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* A cobertura vem primeiro e é a trava contra tirar 100 maxando um
+                jogo só: desde que a nota passou a medir só o que foi jogado,
+                ela não significa nada sem o "de quantos". */}
+            <Etiqueta className={m.jogados * 2 < m.total ? 'text-quase' : 'text-suave'}>
+              em {m.jogados} de {m.total} jogos
+            </Etiqueta>
             <Etiqueta className="text-suave">{m.partidas} partidas</Etiqueta>
             <Etiqueta className="text-suave">{formatarTempo(m.tempoMs)} jogados</Etiqueta>
             {m.dominados > 0 && (
@@ -162,14 +155,70 @@ export function Nerdometro({ banco }: { banco: Banco }) {
         aria-expanded={aberto}
         className="flex w-full items-center justify-center gap-2 border-t border-borda py-2.5 text-sm text-tenue transition-colors hover:bg-superficie-alta hover:text-suave"
       >
-        {aberto ? 'esconder detalhes' : 'ver os 15 critérios'}
+        {aberto ? 'esconder detalhes' : `ver os ${CRITERIOS.length} critérios`}
         <span aria-hidden className={`transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`}>
           ⌄
         </span>
       </button>
 
-      {aberto && <Detalhe linhas={m.linhas} proximo={m.proximoPasso} />}
+      {aberto && (
+        <Detalhe linhas={m.linhas} categorias={m.categorias} proximo={m.proximoPasso} />
+      )}
     </section>
+  )
+}
+
+/**
+ * A receita para subir de faixa.
+ *
+ * "faltam 2 pontos" não é acionável — 2 pontos de quê, feitos onde? Aqui cada
+ * linha é uma tarefa fechada: o jogo, a pontuação a bater e o quanto falta. A
+ * ordem vem de `comoSubir`, que prioriza o que a pessoa já joga.
+ */
+function ComoSubir({
+  passos,
+  maisDeUmJogo,
+  nota,
+}: {
+  passos: readonly PassoParaSubir[]
+  maisDeUmJogo: boolean
+  nota: number
+}) {
+  if (passos.length === 0) return null
+
+  const tom = corDaNota(nota)
+
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-xs text-tenue">
+        {maisDeUmJogo
+          ? 'nenhum jogo sozinho chega lá — o caminho mais curto passa por mais de um:'
+          : 'qualquer um destes, sozinho, já te leva:'}
+      </p>
+
+      <ul className="flex flex-col gap-0.5">
+        {passos.map((p) => (
+          <li key={p.jogoId}>
+            <a
+              href={href({ nome: 'jogo', jogoId: p.jogoId })}
+              className="-mx-1.5 flex items-baseline gap-1.5 rounded-md px-1.5 py-0.5 text-sm text-suave transition-colors hover:bg-superficie-alta hover:text-texto"
+            >
+              <span aria-hidden className="font-mono text-xs text-tenue">
+                {p.icone}
+              </span>
+              <span className="truncate">{p.nome}:</span>
+              <span className="shrink-0">
+                chegue a{' '}
+                <strong className="font-mono tabular font-bold" style={{ color: tom }}>
+                  {p.alvo}
+                </strong>{' '}
+                <span className="text-tenue">(faltam {p.faltam})</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -188,7 +237,9 @@ function Medidor({ nota, animada }: { nota: number; animada: number }) {
             <stop offset="0%" stopColor={corDaNota(0)} />
             <stop offset="35%" stopColor={corDaNota(nota * 0.35)} />
             <stop offset="70%" stopColor={corDaNota(nota * 0.7)} />
-            <stop offset="100%" stopColor={corDaNota(nota, 0.06)} />
+            {/* Sem clarear a ponta: nesta escala o topo já é o ponto mais
+                luminoso, e forçar mais só desbota. O destaque vem do brilho. */}
+            <stop offset="100%" stopColor={corDaNota(nota)} />
           </linearGradient>
         </defs>
 
@@ -263,28 +314,142 @@ function Area({ area }: { area: NotaArea }) {
   )
 }
 
+/**
+ * O painel aberto: uma seção por matéria, na ordem e nas cores do menu — a mesma
+ * divisão da tela de recordes, para as duas lerem igual.
+ *
+ * Em lista corrida, 26 linhas ordenadas por porcentagem respondem "em que eu vou
+ * bem?" e nenhuma outra pergunta. Agrupadas, respondem "vou bem em quê?", que é
+ * a que faz alguém decidir o que jogar. Dentro do grupo a ordem por fração
+ * continua, porque ali ela volta a ser útil.
+ */
 function Detalhe({
   linhas,
+  categorias,
   proximo,
 }: {
   linhas: readonly LinhaNerdometro[]
+  categorias: readonly NotaCategoria[]
   proximo: LinhaNerdometro | null
 }) {
-  const ordenadas = [...linhas].sort((a, b) => b.fracao - a.fracao)
+  const grupos = porCategoria().map(({ categoria }) => ({
+    categoria,
+    linhas: linhas
+      .filter((l) => l.categoria === categoria)
+      .sort((a, b) => b.fracao - a.fracao),
+    nota: categorias.find((c) => c.categoria === categoria),
+  }))
 
   return (
-    <div className="motion-safe:animate-surgir border-t border-borda p-4">
-      <ul className="escalonar flex flex-col">
-        {ordenadas.map((l, i) => (
-          <li key={l.jogoId} style={{ '--i': i } as React.CSSProperties}>
-            <Linha linha={l} sugerido={proximo?.jogoId === l.jogoId} />
-          </li>
-        ))}
-      </ul>
+    <div className="motion-safe:animate-surgir flex flex-col gap-4 border-t border-borda p-4">
+      {grupos.map(
+        (g) =>
+          g.linhas.length > 0 && (
+            <section key={g.categoria} className="flex flex-col gap-1">
+              <CabecalhoCategoria categoria={g.categoria} nota={g.nota} />
 
-      <p className="mt-3 border-t border-borda pt-3 text-xs text-tenue">
-        A nota é a média ponderada dos 15 critérios. Repertório pesa o dobro; a meta de
-        cada jogo é o que dá para decorar de verdade, não o tamanho do dataset.
+              <ul className="escalonar flex flex-col">
+                {g.linhas.map((l, i) => (
+                  <li key={l.jogoId} style={{ '--i': i } as React.CSSProperties}>
+                    <Linha linha={l} sugerido={proximo?.jogoId === l.jogoId} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ),
+      )}
+
+      <Formula />
+    </div>
+  )
+}
+
+/** Mesmo rótulo, mesma cor e mesma nota de matéria da tela de recordes. */
+function CabecalhoCategoria({
+  categoria,
+  nota,
+}: {
+  categoria: Categoria
+  nota: NotaCategoria | undefined
+}) {
+  const jogada = nota !== undefined && nota.nota !== null
+
+  return (
+    <div className="flex items-center gap-2.5 px-2">
+      <h3
+        className={`fonte-display text-xs font-semibold tracking-[0.2em] uppercase ${CORES_CATEGORIA[categoria].texto}`}
+      >
+        {ROTULO_CATEGORIA[categoria]}
+      </h3>
+
+      {jogada && (
+        <span
+          className="font-mono text-sm tabular leading-none font-bold"
+          style={{ color: corDaNota(nota.nota as number) }}
+        >
+          {nota.nota}
+        </span>
+      )}
+
+      <span className="h-px flex-1 bg-borda" />
+
+      {nota !== undefined && (
+        <span className="text-[0.7rem] text-tenue">
+          {jogada ? `em ${nota.jogados} de ${nota.jogos}` : `nunca jogada · ${nota.jogos} jogos`}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A fórmula, aberta.
+ *
+ * O site é para nerd: esconder a conta atrás de "média ponderada" é justamente o
+ * que faria alguém desconfiar do número. Todas as constantes saem de `CURVA` e
+ * de `CRITERIOS` — se o balanceamento mudar, o texto muda junto, senão vira
+ * mentira bem formatada.
+ */
+function Formula() {
+  const pesos = [...new Set(CRITERIOS.map((c) => c.peso))].sort((a, b) => b - a)
+  const maior = pesos[0] as number
+  const menor = pesos[pesos.length - 1] as number
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-borda pt-3 text-xs leading-relaxed text-tenue">
+      <p className="font-mono text-[0.7rem] text-suave">
+        nota = Σ(fração^{br(CURVA)} × peso) / Σ(peso) &nbsp;·&nbsp; fração = min(1, recorde /
+        meta)
+      </p>
+
+      <p>
+        A soma corre só sobre os <strong className="text-suave">jogos jogados</strong>. Jogo
+        intocado fica fora do numerador <em>e</em> do denominador — é por isso que lançar jogo novo
+        não derruba a nota de ninguém. A trava contra tirar 100 maxando um jogo só não está na
+        fórmula, está na etiqueta “em N de M jogos” ali em cima.
+      </p>
+
+      <p>
+        A <strong className="text-suave">meta</strong> de cada jogo é o que dá para decorar de
+        verdade, não o tamanho do dataset: π pede {metaDe('pi')} casas e o dataset tem{' '}
+        {PI_DECIMAIS.length.toLocaleString('pt-BR')}; países pede {metaDe('paises')}, a lista da
+        ONU, num tabuleiro de {PAISES.length} territórios.
+      </p>
+
+      <p>
+        O expoente <span className="font-mono text-suave">{br(CURVA)}</span> é retorno
+        decrescente. Ir de 0 a 40 países leva uma tarde; de 140 a 150 leva semanas. Tratar os dois
+        trechos como iguais puniria exatamente quem faz o que o app pede, que é saber de tudo um
+        pouco.
+      </p>
+
+      <p>
+        O <strong className="text-suave">peso</strong> vai de {br(maior)} (repertório grande) a{' '}
+        {br(menor)} (cálculo rápido), passando por {pesos.slice(1, -1).map(br).join(' e ')}. E
+        cuidado:{' '}
+        <strong className="text-suave">peso não soma ponto, ele amplifica a sua fração</strong> —
+        peso alto num jogo em que você vai mal derruba a nota mais rápido do que um jogo leve
+        levanta.
       </p>
     </div>
   )

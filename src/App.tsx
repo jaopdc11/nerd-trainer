@@ -30,15 +30,45 @@ export function App() {
           : 'max-w-7xl'
 
   return (
-    <div className={`mx-auto min-h-dvh w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8 ${largura}`}>
-      {rota.nome === 'jogo' ? (
-        <Jogo jogoId={rota.jogoId} modoId={rota.modoId} />
-      ) : rota.nome === 'recordes' ? (
-        <Records />
-      ) : (
-        <Menu />
-      )}
+    <div
+      className={`mx-auto flex min-h-dvh w-full flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8 ${largura}`}
+    >
+      <div className="flex-1">
+        {rota.nome === 'jogo' ? (
+          <Jogo jogoId={rota.jogoId} modoId={rota.modoId} />
+        ) : rota.nome === 'recordes' ? (
+          <Records />
+        ) : (
+          <Menu />
+        )}
+      </div>
+
+      <Rodape />
     </div>
+  )
+}
+
+/**
+ * Créditos.
+ *
+ * `flex-1` no conteúdo acima empurra isto para o fim da tela mesmo nas páginas
+ * curtas — rodapé flutuando no meio do vazio é pior que rodapé nenhum.
+ */
+function Rodape() {
+  return (
+    <footer className="mt-10 border-t border-borda pt-5 text-center text-sm text-tenue">
+      feito por{' '}
+      <a
+        href="https://tree.jaopd.dev"
+        target="_blank"
+        // `noreferrer` junto do `noopener`: sem ele a página de destino recebe
+        // de onde o clique veio, e isso não é da conta dela.
+        rel="noopener noreferrer"
+        className="font-semibold text-acento underline decoration-acento/30 underline-offset-4 transition-colors hover:decoration-acento"
+      >
+        jaopd
+      </a>
+    </footer>
   )
 }
 
