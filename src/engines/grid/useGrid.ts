@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { completaSemAmbiguidade, formasDeAutoCommit, normalizarTexto, validar } from '@/core/answer'
 import type { Veredito } from '@/core/answer/types'
 import { mulberry32, seedAleatoria } from '@/core/rng'
+import { useClock } from '@/core/useClock'
 import { useSaveOnExit } from '@/core/useSaveOnExit'
 import type { CelulaGrade, ConfigGrade, ResultadoRun } from '@/core/types'
 
@@ -18,6 +19,19 @@ import type { CelulaGrade, ConfigGrade, ResultadoRun } from '@/core/types'
 
 export type EstadoGrade = 'pronto' | 'jogando' | 'fim'
 
+/**
+ * Por que a resposta não entrou.
+ *
+ * Sem isto, repetir um país que você já acertou e digitar besteira eram a mesma
+ * coisa na tela: nada acontecia e o erro era contado igual. Num mapa de 195
+ * células, com o relógio correndo, o jogador não tem como saber se errou o nome
+ * ou se já tinha dito aquele — e fica repetindo a mesma tentativa.
+ */
+export interface AvisoGrade {
+  readonly tipo: 'repetido' | 'desconhecido'
+  readonly texto: string
+}
+
 export interface SessaoGrade {
   readonly estado: EstadoGrade
   readonly preenchidas: ReadonlyMap<string, string>
@@ -29,6 +43,16 @@ export interface SessaoGrade {
   readonly erros: number
   readonly restantes: number
   readonly duracaoMs: number
+  /** Resposta recusada, e por quê. Some na próxima tentativa. */
+  readonly aviso: AvisoGrade | null
+  /**
+   * Recado preso a uma célula acertada. Ao contrário do `aviso`, fica na tela
+   * até o fim da partida: é uma coisa que o jogo tem a dizer, não um retorno
+   * sobre a última tecla.
+   */
+  readonly nota: string | null
+  /** `null` quando a partida não é cronometrada. */
+  readonly restanteMs: number | null
   /** Só depois do fim: as células que ficaram em branco. */
   readonly faltaram: readonly CelulaGrade[]
   iniciar(): void
@@ -48,9 +72,20 @@ export function useGrid(
   const [ultima, setUltima] = useState<string | null>(null)
   const [erros, setErros] = useState(0)
   const [duracaoMs, setDuracaoMs] = useState(0)
+  const [aviso, setAviso] = useState<AvisoGrade | null>(null)
+  const [nota, setNota] = useState<string | null>(null)
 
   const inicio = useRef(0)
   const runId = useRef(novoRunId())
+
+  /*
+   * O relógio é opcional: a tabela periódica não tem tempo, o mapa-múndi tem
+   * dez minutos. Sem crédito por acerto — aqui o tempo é o adversário, e não
+   * uma moeda que se reconquista como no gerador.
+   */
+  const limiteMs = (config.limiteSegundos ?? 0) * 1000
+  const relogio = useClock(limiteMs, limiteMs)
+  const cronometrado = limiteMs > 0
   const rng = useRef(mulberry32(seedAleatoria()))
 
   const porId = useMemo(
@@ -75,12 +110,21 @@ export function useGrid(
   const acertos = preenchidas.size
   const restantes = config.celulas.length - acertos
 
-  const finalizar = useCallback(
-    (pontuacao: number, errosNaRun: number) => {
+  // Ref para o `finalizar` não depender do relógio e re-criar a cada quadro.
+  const relogioRef = useRef(relogio)
+  relogioRef.current = relogio
+
+  /**
+   * Persiste o que já foi preenchido sem encerrar nada.
+   *
+   * É o que roda quando ele troca de aba: o parcial vai para o storage, a
+   * sessão continua 'jogando' e o relógio continua correndo — não pausar ao
+   * perder o foco é decisão de design do `useClock`, e o que não pode é a
+   * partida acabar sozinha.
+   */
+  const gravar = useCallback(
+    (pontuacao: number, errosNaRun: number): number => {
       const ms = performance.now() - inicio.current
-      setDuracaoMs(ms)
-      setEstado('fim')
-      setAlvoId(null)
       aoFinalizar({
         pontuacao,
         total: config.celulas.length,
@@ -89,8 +133,20 @@ export function useGrid(
         completou: pontuacao === config.celulas.length,
         runId: runId.current,
       })
+      return ms
     },
     [aoFinalizar, config.celulas.length],
+  )
+
+  /** Grava e encerra de fato: relógio parado, grade congelada, gabarito à vista. */
+  const finalizar = useCallback(
+    (pontuacao: number, errosNaRun: number) => {
+      setDuracaoMs(gravar(pontuacao, errosNaRun))
+      setEstado('fim')
+      setAlvoId(null)
+      relogioRef.current.parar()
+    },
+    [gravar],
   )
 
   const sortearAlvo = useCallback(
@@ -109,10 +165,13 @@ export function useGrid(
     setPreenchidas(vazio)
     setErros(0)
     setUltima(null)
+    setAviso(null)
+    setNota(null)
     setDuracaoMs(0)
     setAlvoId(config.ordem === 'sorteada' ? sortearAlvo(vazio) : null)
     setEstado('jogando')
-  }, [config.ordem, sortearAlvo])
+    if (cronometrado) relogio.iniciar()
+  }, [config.ordem, sortearAlvo, cronometrado, relogio])
 
   const responder = useCallback(
     (texto: string): Veredito => {
@@ -122,6 +181,8 @@ export function useGrid(
         config.ordem === 'sorteada'
           ? [porId.get(alvoId ?? '')].filter((c): c is CelulaGrade => c !== undefined)
           : config.celulas.filter((c) => !preenchidas.has(c.id))
+
+      setAviso(null)
 
       for (const celula of candidatas) {
         const outras = new Set(todasAsFormas)
@@ -138,6 +199,8 @@ export function useGrid(
         const proximas = new Map(preenchidas).set(celula.id, celula.gabarito)
         setPreenchidas(proximas)
         setUltima(celula.id)
+        // A célula pontuou; se ela tem algo a dizer, diz agora.
+        if (celula.aviso) setNota(celula.aviso)
 
         if (proximas.size === config.celulas.length) {
           finalizar(proximas.size, erros)
@@ -147,6 +210,22 @@ export function useGrid(
         return r.veredito
       }
 
+      /*
+       * Não casou com nenhuma célula vazia. Antes de contar erro, vale conferir
+       * se casa com alguma JÁ PREENCHIDA: repetir o que você acertou não é o
+       * mesmo que chutar errado, e não deveria custar um erro.
+       */
+      const jaDito = config.celulas.find((c) => {
+        if (!preenchidas.has(c.id)) return false
+        return validar(texto, c.resposta, { rigor: 'estrito' }).veredito !== 'errado'
+      })
+
+      if (jaDito) {
+        setAviso({ tipo: 'repetido', texto: `${jaDito.gabarito} você já acertou` })
+        return 'errado'
+      }
+
+      setAviso({ tipo: 'desconhecido', texto: `"${texto.trim()}" não está no mapa` })
       setErros((e) => e + 1)
       return 'errado'
     },
@@ -205,10 +284,25 @@ export function useGrid(
   errosRef.current = erros
   // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
   // enchia o histórico de runs de zero e inflava o contador de partidas.
+  // `gravar`, nunca `finalizar`: trocar de aba salva o parcial e mais nada.
   useSaveOnExit(
     () => estadoRef.current === 'jogando' && acertosRef.current > 0,
-    () => finalizar(acertosRef.current, errosRef.current),
+    () => {
+      gravar(acertosRef.current, errosRef.current)
+    },
   )
+
+  /*
+   * Zerou o relógio, acabou a partida — com o que já foi preenchido. Roda num
+   * efeito e não dentro do `useClock` porque quem sabe o que é "pontuação" é a
+   * mecânica, não o cronômetro.
+   */
+  const preenchidasRef = useRef(preenchidas)
+  preenchidasRef.current = preenchidas
+  useEffect(() => {
+    if (!cronometrado || estado !== 'jogando' || relogio.restanteMs > 0) return
+    finalizar(preenchidasRef.current.size, errosRef.current)
+  }, [cronometrado, estado, relogio.restanteMs, finalizar])
 
   const encerrar = useCallback(() => {
     if (estado === 'jogando') finalizar(preenchidas.size, erros)
@@ -228,6 +322,9 @@ export function useGrid(
     erros,
     restantes,
     duracaoMs,
+    aviso,
+    nota,
+    restanteMs: cronometrado ? relogio.restanteMs : null,
     faltaram,
     iniciar,
     responder,

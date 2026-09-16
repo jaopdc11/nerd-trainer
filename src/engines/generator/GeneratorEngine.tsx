@@ -1,6 +1,9 @@
 import { useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
 import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
+import { useAtalhoPular } from '@/core/useAtalhoPular'
+import { desfecho, faltaParaRecorde, marcaAnterior } from '@/core/desfecho'
+import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, cronometro, duracao, taxa } from '@/core/format'
 import type { ConfigGerador, Conteudo, JogoGerador, ResultadoRun } from '@/core/types'
 import { useGenerator } from './useGenerator'
@@ -11,11 +14,13 @@ interface Props {
   readonly config: ConfigGerador
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
+  readonly run: ResultadoDaRun | null
 }
 
-export function GeneratorEngine({ jogo, config, onFinalizar, recorde }: Props) {
+export function GeneratorEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useGenerator(config, onFinalizar)
+  useAtalhoPular(sessao.estado === 'jogando' && sessao.correcao === null, sessao.pular)
 
   return (
     <div ref={area} className="flex flex-col gap-5">
@@ -46,10 +51,27 @@ export function GeneratorEngine({ jogo, config, onFinalizar, recorde }: Props) {
               ancora={area}
             />
           )}
+
+          {/* Pular é ação FREQUENTE, não saída de emergência: num baralho de 195
+              bandeiras ninguém sabe todas. A primeira versão era um texto cinza
+              de 12px e o usuário simplesmente não viu. Botão de verdade, com o
+              atalho à vista, porque a mão já está no teclado. */}
+          {sessao.correcao === null && (
+            <button
+              type="button"
+              onClick={sessao.pular}
+              className="group mx-auto flex items-center gap-2.5 rounded-xl border border-borda bg-superficie px-4 py-2 text-sm text-suave transition-colors hover:border-borda-forte hover:bg-superficie-alta hover:text-texto"
+            >
+              não sei — pular
+              <kbd className="rounded-md border border-borda-forte px-1.5 py-0.5 font-mono text-[0.65rem] text-tenue group-hover:text-suave">
+                Esc
+              </kbd>
+            </button>
+          )}
         </>
       )}
 
-      {sessao.estado === 'fim' && <Fim jogo={jogo} sessao={sessao} recorde={recorde} />}
+      {sessao.estado === 'fim' && <Fim jogo={jogo} sessao={sessao} recorde={recorde} run={run} />}
     </div>
   )
 }
@@ -66,7 +88,7 @@ function Abertura({
   onIniciar: () => void
 }) {
   return (
-    <Painel className="flex flex-col items-start gap-5 p-6">
+    <Painel className="flex flex-col items-center gap-5 p-6 text-center">
       <div className="flex flex-wrap gap-2">
         <Etiqueta className="text-texto">{config.segundosIniciais}s iniciais</Etiqueta>
         <Etiqueta className="border-acento/40 text-acento">
@@ -186,21 +208,30 @@ function Fim({
   jogo,
   sessao,
   recorde,
+  run,
 }: {
   jogo: JogoGerador
   sessao: SessaoGerador
   recorde: number | null
+  run: ResultadoDaRun | null
 }) {
-  const bateu = recorde === null || sessao.acertos > recorde
+  const fim = desfecho(sessao.acertos, run, recorde)
+  const falta = faltaParaRecorde(sessao.acertos, run, recorde)
   const velocidade = taxa(sessao.acertos, sessao.duracaoMs, jogo.unidade)
 
   return (
     <Painel className="motion-safe:animate-surgir flex flex-col items-start gap-5 p-6">
       <h2 className="fonte-display text-2xl font-bold">
-        {bateu ? <span className="text-acento">Recorde novo</span> : 'Tempo esgotado'}
+        {fim === 'superou' ? (
+          <span className="text-acento">Recorde novo</span>
+        ) : fim === 'empatou' ? (
+          <span className="text-quase">Empatou o recorde</span>
+        ) : (
+          'Tempo esgotado'
+        )}
       </h2>
 
-      <Placar valor={sessao.acertos} sufixo={jogo.unidade.plural} destacado={bateu} />
+      <Placar valor={sessao.acertos} sufixo={jogo.unidade.plural} destacado={fim === 'superou'} />
 
       <p className="font-mono text-sm text-tenue">
         {duracao(sessao.duracaoMs)}
@@ -208,10 +239,16 @@ function Fim({
         {sessao.erros > 0 && ` · ${sessao.erros} erro${sessao.erros > 1 ? 's' : ''}`}
       </p>
 
-      {!bateu && recorde !== null && (
+      {falta !== null && (
         <p className="text-sm text-suave">
-          faltaram <strong className="text-texto">{recorde - sessao.acertos + 1}</strong> para o
-          seu recorde de {recorde}
+          faltaram <strong className="text-texto">{falta}</strong> para o seu recorde de{' '}
+          {marcaAnterior(run, recorde)}
+        </p>
+      )}
+
+      {fim === 'empatou' && (
+        <p className="text-sm text-suave">
+          é o seu recorde na mosca — <strong className="text-texto">1</strong> a mais e ele muda
         </p>
       )}
 

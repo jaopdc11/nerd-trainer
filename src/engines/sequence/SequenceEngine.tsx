@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
 import { Botao, Etiqueta, Painel, Placar } from '@/components/ui'
+import { desfecho } from '@/core/desfecho'
+import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, duracao, taxa } from '@/core/format'
 import type { ConfigSequencia, JogoSequencia, ResultadoRun } from '@/core/types'
 import { useSequence } from './useSequence'
@@ -11,13 +13,22 @@ interface Props {
   readonly config: ConfigSequencia
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
+  readonly run: ResultadoDaRun | null
 }
 
-export function SequenceEngine({ jogo, config, onFinalizar, recorde }: Props) {
+export function SequenceEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useSequence(config, onFinalizar)
   const acabou = sessao.estado === 'morto' || sessao.estado === 'completo'
   const superou = recorde !== null && sessao.indice > recorde
+
+  if (sessao.estado === 'pronto') {
+    return (
+      <div ref={area} className="flex flex-col gap-5">
+        <Abertura jogo={jogo} config={config} recorde={recorde} onIniciar={sessao.iniciar} />
+      </div>
+    )
+  }
 
   return (
     <div ref={area} className="flex flex-col gap-5">
@@ -43,8 +54,56 @@ export function SequenceEngine({ jogo, config, onFinalizar, recorde }: Props) {
         ancora={area}
       />
 
-      {acabou && <Revisao sessao={sessao} jogo={jogo} config={config} recorde={recorde} />}
+      {acabou && <Revisao sessao={sessao} jogo={jogo} config={config} recorde={recorde} run={run} />}
     </div>
+  )
+}
+
+function Abertura({
+  jogo,
+  config,
+  recorde,
+  onIniciar,
+}: {
+  jogo: JogoSequencia
+  config: ConfigSequencia
+  recorde: number | null
+  onIniciar: () => void
+}) {
+  return (
+    <Painel className="flex flex-col items-center gap-5 p-6 text-center">
+      <div className="flex flex-wrap justify-center gap-2">
+        <Etiqueta className="border-erro/40 text-erro">morte súbita</Etiqueta>
+        <Etiqueta className="text-tenue">sem relógio</Etiqueta>
+        {config.total !== undefined && (
+          <Etiqueta className="text-texto">
+            {config.total} {jogo.unidade.plural} no total
+          </Etiqueta>
+        )}
+      </div>
+
+      <p className="text-suave">
+        {config.entrada === 'caractere'
+          ? 'Cada tecla é um item e vale na hora — errar um encerra a partida.'
+          : 'Digite cada item e tecle Enter — errar um encerra a partida.'}{' '}
+        Não tem relógio: o placar é até onde você chegou.{' '}
+        {config.total !== undefined
+          ? 'A sequência tem fim, então dá para zerar.'
+          : 'A sequência não acaba — vai até você errar.'}
+      </p>
+
+      <p className="text-sm text-tenue">
+        Quando errar, o jogo mostra os próximos itens para você decorar antes de repetir.
+      </p>
+
+      {recorde !== null && (
+        <p className="font-mono text-sm text-tenue">
+          seu recorde: <span className="text-acento">{comUnidade(recorde, jogo.unidade)}</span>
+        </p>
+      )}
+
+      <Botao onClick={onIniciar}>Começar</Botao>
+    </Painel>
   )
 }
 
@@ -133,15 +192,17 @@ function Revisao({
   jogo,
   config,
   recorde,
+  run,
 }: {
   sessao: Sessao
   jogo: JogoSequencia
   config: ConfigSequencia
   recorde: number | null
+  run: ResultadoDaRun | null
 }) {
   const completou = sessao.estado === 'completo'
   const velocidade = taxa(sessao.indice, sessao.duracaoMs, jogo.unidade)
-  const bateuRecorde = recorde === null || sessao.indice > recorde
+  const fim = desfecho(sessao.indice, run, recorde)
   const sep = config.separador ?? ''
 
   return (
@@ -150,8 +211,10 @@ function Revisao({
         <h2 className="fonte-display text-xl font-bold">
           {completou ? (
             <span className="text-acento">Sequência inteira!</span>
-          ) : bateuRecorde ? (
+          ) : fim === 'superou' ? (
             <span className="text-acento">Recorde novo</span>
+          ) : fim === 'empatou' ? (
+            <span className="text-quase">Empatou o recorde</span>
           ) : (
             'Fim da partida'
           )}
@@ -184,7 +247,10 @@ function Revisao({
         </div>
       )}
 
-      <Botao onClick={sessao.reiniciar} className="self-start">
+      {/* `iniciar`, não `reiniciar`: ele acabou de ler os próximos itens logo
+          acima para decorar, e mandá-lo de volta à abertura só para reler as
+          regras que já conhece jogaria esse pedaço fora. Recomeça direto. */}
+      <Botao onClick={sessao.iniciar} className="self-start">
         Tentar de novo
       </Botao>
     </Painel>

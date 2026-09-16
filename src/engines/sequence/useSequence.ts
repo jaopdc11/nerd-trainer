@@ -32,6 +32,9 @@ export interface Sessao {
   readonly duracaoMs: number
   digitar(c: string): Veredito
   enviar(texto: string): Veredito
+  /** Sai da abertura e começa a valer: zera tudo e marca o início do cronômetro. */
+  iniciar(): void
+  /** Descarta a partida e volta para a abertura. */
   reiniciar(): void
 }
 
@@ -71,10 +74,17 @@ export function useSequence(
     return lista
   }, [estado, indice, itemEm, config.revisaoPosMorte])
 
-  const finalizar = useCallback(
-    (pontuacao: number, completou: boolean, errosNaRun: number) => {
+  /**
+   * Persiste o que já foi feito sem encerrar nada.
+   *
+   * É o que roda quando ele troca de aba: o parcial vai para o storage e a
+   * partida continua exatamente onde estava. Nenhum `setState` aqui — trocar de
+   * aba não pode mexer na sessão, e no cleanup do efeito o componente já está
+   * saindo de cena.
+   */
+  const gravar = useCallback(
+    (pontuacao: number, completou: boolean, errosNaRun: number): number => {
       const ms = inicio.current === null ? 0 : performance.now() - inicio.current
-      setDuracaoMs(ms)
       // Gravar aqui, no handler, e não num efeito: o StrictMode do React roda
       // efeitos duas vezes, e a partida seria contada em dobro.
       aoFinalizar({
@@ -85,18 +95,25 @@ export function useSequence(
         completou,
         runId: runId.current,
       })
+      return ms
     },
     [aoFinalizar, config.total],
   )
 
+  /** Grava e encerra de fato: é o fim da partida, não uma pausa. */
+  const finalizar = useCallback(
+    (pontuacao: number, completou: boolean, errosNaRun: number) => {
+      setDuracaoMs(gravar(pontuacao, completou, errosNaRun))
+    },
+    [gravar],
+  )
+
   const julgar = useCallback(
     (digitado: string): Veredito => {
-      if (estado === 'morto' || estado === 'completo') return 'errado'
-
-      if (inicio.current === null) {
-        inicio.current = performance.now()
-        setEstado('jogando')
-      }
+      // Antes valia qualquer tecla e a partida nascia sozinha na primeira.
+      // Agora o começo é explícito, pelo botão da abertura: fora de 'jogando'
+      // o teclado não conta.
+      if (estado !== 'jogando') return 'errado'
 
       const esperado = itemEm(indice)
       if (esperado === null) {
@@ -141,20 +158,34 @@ export function useSequence(
   indiceRef.current = indice
   // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
   // enchia o histórico de runs de zero e inflava o contador de partidas.
+  // `gravar`, nunca `finalizar`: trocar de aba salva o parcial e mais nada.
   useSaveOnExit(
     () => estadoRef.current === 'jogando' && indiceRef.current > 0,
-    () => finalizar(indiceRef.current, false, 0),
+    () => {
+      gravar(indiceRef.current, false, 0)
+    },
   )
 
-  const reiniciar = useCallback(() => {
-    setEstado('pronto')
+  /** Volta tudo ao zero. Quem chama decide se o próximo estado é abertura ou jogo. */
+  const zerar = useCallback(() => {
     setIndice(0)
     setAcertados([])
     setErro(null)
     setDuracaoMs(0)
-    inicio.current = null
     runId.current = novoRunId()
   }, [])
+
+  const iniciar = useCallback(() => {
+    zerar()
+    inicio.current = performance.now()
+    setEstado('jogando')
+  }, [zerar])
+
+  const reiniciar = useCallback(() => {
+    zerar()
+    inicio.current = null
+    setEstado('pronto')
+  }, [zerar])
 
   return {
     estado,
@@ -165,6 +196,7 @@ export function useSequence(
     duracaoMs,
     digitar: julgar,
     enviar: julgar,
+    iniciar,
     reiniciar,
   }
 }

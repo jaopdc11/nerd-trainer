@@ -1,6 +1,9 @@
 import { useRef } from 'react'
 import { AnswerInput } from '@/components/AnswerInput'
 import { Barra, Botao, Etiqueta, Painel, Placar } from '@/components/ui'
+import { useAtalhoPular } from '@/core/useAtalhoPular'
+import { desfecho } from '@/core/desfecho'
+import type { ResultadoDaRun } from '@/core/desfecho'
 import { comUnidade, duracao } from '@/core/format'
 import type { ConfigFlashcard, Conteudo, JogoFlashcard, ResultadoRun } from '@/core/types'
 import { useFlashcard } from './useFlashcard'
@@ -11,11 +14,13 @@ interface Props {
   readonly config: ConfigFlashcard
   readonly onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   readonly recorde: number | null
+  readonly run: ResultadoDaRun | null
 }
 
-export function FlashcardEngine({ jogo, config, onFinalizar, recorde }: Props) {
+export function FlashcardEngine({ jogo, config, onFinalizar, recorde, run }: Props) {
   const area = useRef<HTMLDivElement>(null)
   const sessao = useFlashcard(config, onFinalizar)
+  useAtalhoPular(sessao.estado === 'jogando' && sessao.correcao === null, sessao.pular)
 
   return (
     <div ref={area} className="flex flex-col gap-5">
@@ -42,10 +47,27 @@ export function FlashcardEngine({ jogo, config, onFinalizar, recorde }: Props) {
           ) : (
             <Alternativas sessao={sessao} />
           )}
+
+          {/* Pular é ação FREQUENTE, não saída de emergência: num baralho de 195
+              bandeiras ninguém sabe todas. A primeira versão era um texto cinza
+              de 12px e o usuário simplesmente não viu. Botão de verdade, com o
+              atalho à vista, porque a mão já está no teclado. */}
+          {sessao.correcao === null && (
+            <button
+              type="button"
+              onClick={sessao.pular}
+              className="group mx-auto flex items-center gap-2.5 rounded-xl border border-borda bg-superficie px-4 py-2 text-sm text-suave transition-colors hover:border-borda-forte hover:bg-superficie-alta hover:text-texto"
+            >
+              não sei — pular
+              <kbd className="rounded-md border border-borda-forte px-1.5 py-0.5 font-mono text-[0.65rem] text-tenue group-hover:text-suave">
+                Esc
+              </kbd>
+            </button>
+          )}
         </>
       )}
 
-      {sessao.estado === 'fim' && <Fim jogo={jogo} sessao={sessao} recorde={recorde} />}
+      {sessao.estado === 'fim' && <Fim jogo={jogo} sessao={sessao} recorde={recorde} run={run} />}
     </div>
   )
 }
@@ -64,7 +86,7 @@ function Abertura({
   const morteSubita = config.fim === 'morte-subita'
 
   return (
-    <Painel className="flex flex-col items-start gap-5 p-6">
+    <Painel className="flex flex-col items-center gap-5 p-6 text-center">
       <Etiqueta className={morteSubita ? 'border-erro/40 text-erro' : 'text-acento'}>
         {morteSubita ? 'morte súbita' : 'baralho completo'}
       </Etiqueta>
@@ -135,6 +157,17 @@ function Pergunta({ sessao }: { sessao: SessaoFlashcard }) {
 }
 
 function Render({ conteudo, classe }: { conteudo: Conteudo; classe?: string }) {
+  if (conteudo.kind === 'imagem') {
+    return (
+      <img
+        src={conteudo.valor}
+        alt={conteudo.alt}
+        // `contain` porque as proporções variam: a Suíça é quadrada, o Catar é
+        // quase 1:2. Esticar deformaria justamente o que se pede para reconhecer.
+        className="h-32 w-auto max-w-full rounded-lg border border-borda object-contain shadow-lg sm:h-44"
+      />
+    )
+  }
   if (conteudo.kind === 'mathml') {
     // MathML pré-renderizado no build. Nunca vem de entrada do jogador.
     // biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle
@@ -183,12 +216,14 @@ function Fim({
   jogo,
   sessao,
   recorde,
+  run,
 }: {
   jogo: JogoFlashcard
   sessao: SessaoFlashcard
   recorde: number | null
+  run: ResultadoDaRun | null
 }) {
-  const bateu = recorde === null || sessao.acertos > recorde
+  const fim = desfecho(sessao.acertos, run, recorde)
   const zerou = sessao.total > 0 && sessao.acertos === sessao.total
 
   return (
@@ -196,8 +231,10 @@ function Fim({
       <h2 className="fonte-display text-2xl font-bold">
         {zerou ? (
           <span className="text-acento">Baralho inteiro!</span>
-        ) : bateu ? (
+        ) : fim === 'superou' ? (
           <span className="text-acento">Recorde novo</span>
+        ) : fim === 'empatou' ? (
+          <span className="text-quase">Empatou o recorde</span>
         ) : (
           'Fim da partida'
         )}
@@ -207,7 +244,7 @@ function Fim({
         valor={sessao.acertos}
         total={sessao.total > 0 ? sessao.total : undefined}
         sufixo={jogo.unidade.plural}
-        destacado={bateu}
+        destacado={fim === 'superou'}
       />
 
       <p className="font-mono text-sm text-tenue">

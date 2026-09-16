@@ -41,6 +41,8 @@ export interface SessaoGerador {
   escolher(indice: number): Veredito
   /** O que foi digitado já é a resposta inteira? Dispensa o Enter. */
   podeAutoCommitar(texto: string): boolean
+  /** "Não sei": revela o gabarito e vai para o próximo. Conta erro, não credita tempo. */
+  pular(): void
   reiniciar(): void
 }
 
@@ -79,12 +81,17 @@ export function useGenerator(
     [config],
   )
 
-  const finalizar = useCallback(
-    (pontuacao: number, errosNaRun: number) => {
+  /**
+   * Persiste o que já foi feito sem encerrar nada.
+   *
+   * É o que roda quando ele troca de aba: o parcial vai para o storage e a
+   * partida continua. O relógio segue correndo de propósito — pausar ao perder
+   * o foco seria o exploit que o `useClock` documenta —, mas o exercício
+   * continua na tela para quem voltar.
+   */
+  const gravar = useCallback(
+    (pontuacao: number, errosNaRun: number): number => {
       const ms = performance.now() - inicio.current
-      setDuracaoMs(ms)
-      setEstado('fim')
-      setExercicio(null)
       aoFinalizar({
         pontuacao,
         duracaoMs: ms,
@@ -92,8 +99,19 @@ export function useGenerator(
         completou: false,
         runId: runId.current,
       })
+      return ms
     },
     [aoFinalizar],
+  )
+
+  /** Grava e encerra de fato: o relógio zerou ou ele desistiu. */
+  const finalizar = useCallback(
+    (pontuacao: number, errosNaRun: number) => {
+      setDuracaoMs(gravar(pontuacao, errosNaRun))
+      setEstado('fim')
+      setExercicio(null)
+    },
+    [gravar],
   )
 
   // O relógio zerou: encerra a partida.
@@ -116,9 +134,12 @@ export function useGenerator(
   estadoRef.current = estado
   // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
   // enchia o histórico de runs de zero e inflava o contador de partidas.
+  // `gravar`, nunca `finalizar`: trocar de aba salva o parcial e mais nada.
   useSaveOnExit(
     () => estadoRef.current === 'jogando' && acertosRef.current > 0,
-    () => finalizar(acertosRef.current, errosRef.current),
+    () => {
+      gravar(acertosRef.current, errosRef.current)
+    },
   )
 
   const iniciar = useCallback(() => {
@@ -176,6 +197,20 @@ export function useGenerator(
     [estado, exercicio, correcao, julgar],
   )
 
+  /**
+   * "Não sei": o exercício que ele não sabe sai da frente.
+   *
+   * Mesmo problema do flashcard — o `AnswerInput` não envia campo vazio, então
+   * um exercício desconhecido ficava travando o relógio sem saída. Cai no
+   * caminho do erro: mostra o gabarito, conta erro e sorteia o próximo. O que
+   * ele não ganha é tempo: bônus só por acerto, senão pular viraria a maneira
+   * mais rápida de farmar relógio.
+   */
+  const pular = useCallback(() => {
+    if (estado !== 'jogando' || !exercicio || correcao !== null) return
+    julgar(false, exercicio.gabarito)
+  }, [estado, exercicio, correcao, julgar])
+
   const podeAutoCommitar = useCallback(
     (texto: string): boolean => {
       if (estado !== 'jogando' || !exercicio || correcao !== null) return false
@@ -214,6 +249,7 @@ export function useGenerator(
     responder,
     escolher,
     podeAutoCommitar,
+    pular,
     reiniciar,
   }
 }

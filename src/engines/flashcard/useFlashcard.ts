@@ -33,6 +33,8 @@ export interface SessaoFlashcard {
   responder(texto: string): Veredito
   podeAutoCommitar(texto: string): boolean
   escolher(indice: number): Veredito
+  /** "Não sei": revela o gabarito e avança. Conta como erro. */
+  pular(): void
   reiniciar(): void
 }
 
@@ -54,12 +56,15 @@ export function useFlashcard(
 
   useEffect(() => () => clearTimeout(pausa.current), [])
 
-  const finalizar = useCallback(
-    (pontuacao: number, errosNaRun: number, completou: boolean) => {
+  /**
+   * Persiste o que já foi acertado sem encerrar nada.
+   *
+   * É o que roda quando ele troca de aba: o parcial vai para o storage e a
+   * carta continua na tela, esperando a resposta de quem voltou.
+   */
+  const gravar = useCallback(
+    (pontuacao: number, errosNaRun: number, completou: boolean): number => {
       const ms = performance.now() - inicio.current
-      setDuracaoMs(ms)
-      setEstado('fim')
-      setCorrecao(null)
       aoFinalizar({
         pontuacao,
         total: baralho.length,
@@ -68,8 +73,19 @@ export function useFlashcard(
         completou,
         runId: runId.current,
       })
+      return ms
     },
     [aoFinalizar, baralho.length],
+  )
+
+  /** Grava e encerra de fato: baralho fechado, placar final na tela. */
+  const finalizar = useCallback(
+    (pontuacao: number, errosNaRun: number, completou: boolean) => {
+      setDuracaoMs(gravar(pontuacao, errosNaRun, completou))
+      setEstado('fim')
+      setCorrecao(null)
+    },
+    [gravar],
   )
 
   const iniciar = useCallback(() => {
@@ -159,6 +175,24 @@ export function useFlashcard(
     [carta, correcao, julgar],
   )
 
+  /**
+   * "Não sei": a carta que ele não sabe sai da frente.
+   *
+   * Sem isto o jogo simplesmente travava numa bandeira desconhecida — o
+   * `AnswerInput` não envia campo vazio (de propósito: um Enter acidental não
+   * pode queimar uma carta), então não havia como avançar.
+   *
+   * É exatamente o caminho do erro: mostra o gabarito com a mesma pausa e o
+   * mesmo visual, porque não saber é a hora de aprender, não de esconder a
+   * resposta; e conta erro, porque não saber é não saber. Em morte súbita
+   * encerra igual a errar — senão o botão viraria o jeito de burlar a morte
+   * súbita.
+   */
+  const pular = useCallback(() => {
+    if (estado !== 'jogando' || !carta || correcao !== null) return
+    julgar('errado', carta.gabarito)
+  }, [estado, carta, correcao, julgar])
+
   const podeAutoCommitar = useCallback(
     (texto: string): boolean => {
       if (!carta || carta.tipo !== 'digitada' || correcao !== null) return false
@@ -177,9 +211,12 @@ export function useFlashcard(
   errosRef.current = erros
   // Só conta como partida se ele chegou a pontuar: abrir o jogo e voltar
   // enchia o histórico de runs de zero e inflava o contador de partidas.
+  // `gravar`, nunca `finalizar`: trocar de aba salva o parcial e mais nada.
   useSaveOnExit(
     () => estadoRef.current === 'jogando' && acertosRef.current > 0,
-    () => finalizar(acertosRef.current, errosRef.current, false),
+    () => {
+      gravar(acertosRef.current, errosRef.current, false)
+    },
   )
 
   const reiniciar = useCallback(() => {
@@ -201,6 +238,7 @@ export function useFlashcard(
     responder,
     podeAutoCommitar,
     escolher,
+    pular,
     reiniciar,
   }
 }

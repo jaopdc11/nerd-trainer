@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameShell } from '@/components/GameShell'
 import { Menu } from '@/components/Menu'
 import { Records } from '@/components/Records'
@@ -6,6 +6,7 @@ import { FlashcardEngine } from '@/engines/flashcard/FlashcardEngine'
 import { GeneratorEngine } from '@/engines/generator/GeneratorEngine'
 import { GridEngine } from '@/engines/grid/GridEngine'
 import { SequenceEngine } from '@/engines/sequence/SequenceEngine'
+import type { ResultadoDaRun } from '@/core/desfecho'
 import { buscarJogo } from '@/core/registry'
 import { navegar, useRota } from '@/core/route'
 import type { JogoModule, ResultadoRun } from '@/core/types'
@@ -44,13 +45,49 @@ export function App() {
 function Jogo({ jogoId, modoId }: { jogoId: string; modoId?: string }) {
   const jogo = buscarJogo(jogoId)
   const { recordeDe, registrarRun } = useRecordes()
+  const [ultimaRun, setUltimaRun] = useState<ResultadoDaRun | null>(null)
+  // Ref porque `aoFinalizar` precisa enxergar a gravação anterior da MESMA run
+  // sem se recriar a cada uma delas.
+  const runRef = useRef<ResultadoDaRun | null>(null)
 
+  /*
+   * Fotografa o recorde de antes da partida e o veredito da `registrar`.
+   *
+   * A sutileza está em "de antes da PARTIDA", não "de antes desta gravação".
+   * Uma partida é gravada mais de uma vez: o `useSaveOnExit` salva o parcial a
+   * cada troca de aba, e o desfecho vem depois. Se cada gravação refizesse a
+   * foto, a segunda leria o recorde que a PRIMEIRA acabou de criar — foi assim
+   * que 141 países viraram "Empatou o recorde", comparando a partida com ela
+   * mesma. Por isso a foto é tirada uma vez por `runId` e reaproveitada.
+   *
+   * `superou` acumula pelo mesmo motivo: se o parcial já bateu o recorde, a
+   * gravação final devolve `false` (o recorde já é dela), e a partida bateu o
+   * recorde mesmo assim.
+   */
   const aoFinalizar = useCallback(
     (parcial: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => {
-      registrarRun({ ...parcial, jogoId, ...(modoId ? { modoId } : {}) })
+      const anterior = runRef.current
+      const mesmaRun = anterior?.runId === parcial.runId
+
+      const recordeAnterior = mesmaRun
+        ? anterior.recordeAnterior
+        : (recordeDe(jogoId, modoId)?.recorde.pontuacao ?? null)
+
+      const agora = registrarRun({ ...parcial, jogoId, ...(modoId ? { modoId } : {}) })
+      const resultado: ResultadoDaRun = {
+        runId: parcial.runId,
+        recordeAnterior,
+        superou: (mesmaRun && anterior.superou) || agora,
+      }
+
+      runRef.current = resultado
+      setUltimaRun(resultado)
     },
-    [registrarRun, jogoId, modoId],
+    [recordeDe, registrarRun, jogoId, modoId],
   )
+
+  // Trocar de jogo não pode herdar o desfecho do jogo anterior.
+  useEffect(() => setUltimaRun(null), [])
 
   if (!jogo) {
     // Link velho ou digitado errado: volta ao menu sem sujar o histórico.
@@ -62,7 +99,7 @@ function Jogo({ jogoId, modoId }: { jogoId: string; modoId?: string }) {
 
   return (
     <GameShell jogo={jogo}>
-      <Mecanica jogo={jogo} onFinalizar={aoFinalizar} recorde={recorde} />
+      <Mecanica jogo={jogo} onFinalizar={aoFinalizar} recorde={recorde} run={ultimaRun} />
     </GameShell>
   )
 }
@@ -71,10 +108,12 @@ function Mecanica({
   jogo,
   onFinalizar,
   recorde,
+  run,
 }: {
   jogo: JogoModule
   onFinalizar: (r: Omit<ResultadoRun, 'jogoId' | 'modoId'>) => void
   recorde: number | null
+  run: ResultadoDaRun | null
 }) {
   switch (jogo.mecanica) {
     case 'sequencia':
@@ -84,6 +123,7 @@ function Mecanica({
           config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
+          run={run}
         />
       )
     case 'gerador':
@@ -93,6 +133,7 @@ function Mecanica({
           config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
+          run={run}
         />
       )
     case 'flashcard':
@@ -102,6 +143,7 @@ function Mecanica({
           config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
+          run={run}
         />
       )
     case 'grade':
@@ -111,6 +153,7 @@ function Mecanica({
           config={jogo.config()}
           onFinalizar={onFinalizar}
           recorde={recorde}
+          run={run}
         />
       )
   }

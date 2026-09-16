@@ -15,15 +15,27 @@ import { useEffect, useRef } from 'react'
  * `beforeunload` não entra: o Safari no iOS costuma não disparar, e `pagehide`
  * cobre o mesmo caso de forma confiável.
  *
+ * **`gravar` é só gravar.** Quem chama este hook passa a operação que persiste o
+ * parcial, nunca a que encerra a partida: por um tempo as engines passaram o
+ * `finalizar`, e trocar de aba no meio de uma run terminava o jogo — voltar para
+ * a aba dava de cara com a tela de fim. Trocar de aba salva o progresso e mais
+ * nada; a partida continua exatamente onde estava, relógio incluído (o
+ * `useClock` não pausa ao perder o foco, e isso é de propósito).
+ *
+ * No cleanup gravar também é o certo: ali o componente está desmontando de
+ * qualquer jeito, e mexer no estado de quem já saiu de cena não serviria a
+ * ninguém.
+ *
  * Gravar demais não é problema: `registrar` é idempotente por `runId`, então a
- * mesma partida salva duas vezes continua contando uma.
+ * mesma partida salva duas vezes continua contando uma — e, se ela voltar com
+ * pontuação maior, o parcial é atualizado em vez de duplicado.
  */
-export function useSaveOnExit(emAndamento: () => boolean, salvar: () => void): void {
+export function useSaveOnExit(emAndamento: () => boolean, gravar: () => void): void {
   // Refs para o efeito rodar uma vez só e ainda assim enxergar o estado atual.
   const emAndamentoRef = useRef(emAndamento)
-  const salvarRef = useRef(salvar)
+  const salvarRef = useRef(gravar)
   emAndamentoRef.current = emAndamento
-  salvarRef.current = salvar
+  salvarRef.current = gravar
 
   useEffect(() => {
     const gravarSePreciso = () => {
