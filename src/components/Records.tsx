@@ -1,44 +1,78 @@
 import { useState } from 'react'
+import { corDaNota } from '@/core/escala'
 import { duracao, quando, taxa } from '@/core/format'
-import { JOGOS } from '@/core/registry'
+import { calcular } from '@/core/nerdometro'
+import type { NotaCategoria } from '@/core/nerdometro'
+import { JOGOS, porCategoria } from '@/core/registry'
 import { href } from '@/core/route'
 import type { Entrada, Partida } from '@/core/storage'
 import { ROTULO_CATEGORIA } from '@/core/types'
-import type { JogoModule } from '@/core/types'
+import type { Categoria, JogoModule } from '@/core/types'
 import { useRecordes } from '@/core/useRecords'
-import { Botao, CORES_CATEGORIA, Etiqueta, IconeJogo, Painel } from './ui'
+import { Transferencia } from './Transferencia'
+import { BotaoLink, CORES_CATEGORIA, Etiqueta, IconeJogo, Painel } from './ui'
 
 interface Linha {
   readonly jogo: JogoModule
   readonly entrada: Entrada
 }
 
+interface Grupo {
+  readonly categoria: Categoria
+  readonly linhas: readonly Linha[]
+  readonly nota: NotaCategoria | undefined
+}
+
 /**
- * Tela de recordes: um resumo no topo e uma linha por jogo, que abre com a
- * evolução.
+ * Tela de recordes: um resumo no topo e uma linha por jogo, agrupadas pela
+ * mesma divisão de matérias do menu.
+ *
+ * Agrupar por categoria (e não numa lista corrida) é o que deixa a tela
+ * responder "vou bem em quê?" — cada cabeçalho carrega a nota daquela matéria,
+ * calculada pela mesma regra da nota geral.
  *
  * O gráfico é a razão de guardar o histórico inteiro em vez de só o recorde —
  * dá para ver se você está melhorando ou repetindo o mesmo número, e a linha
  * tracejada do recorde mostra o teto que você mesmo estabeleceu.
  */
-export function Records() {
-  const { recordeDe, limparTudo, exportar, importar } = useRecordes()
+/**
+ * A mesma grade do menu.
+ *
+ * Em coluna única, 26 jogos viram rolagem sem fim e cada card fica com um vão
+ * morto no meio — a linha não tem conteúdo que justifique a largura da tela.
+ * `items-start` para um card expandido não esticar os vizinhos da mesma fileira.
+ */
+const GRADE_DE_JOGOS = 'escalonar grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3'
 
-  const linhas: Linha[] = JOGOS.map((jogo) => ({ jogo, entrada: recordeDe(jogo.id) })).filter(
-    (l): l is Linha => l.entrada !== null,
-  )
+export function Records() {
+  const { banco, recordeDe, limparTudo, exportar, juntarCom, substituirPor } = useRecordes()
+
+  const medidor = calcular(banco)
+
+  const grupos: Grupo[] = porCategoria().map(({ categoria, jogos }) => ({
+    categoria,
+    linhas: jogos
+      .map((jogo) => ({ jogo, entrada: recordeDe(jogo.id) }))
+      .filter((l): l is Linha => l.entrada !== null),
+    nota: medidor.categorias.find((c) => c.categoria === categoria),
+  }))
+
+  const linhas: Linha[] = grupos.flatMap((g) => g.linhas)
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between gap-3 pt-4">
-        <a
+        <BotaoLink
           href={href({ nome: 'menu' })}
-          className="flex items-center gap-1.5 text-sm text-tenue transition-colors hover:text-texto"
+          variante="voltar"
+          tamanho="md"
+          className="shrink-0 gap-1.5"
         >
           <span aria-hidden>←</span> jogos
-        </a>
+        </BotaoLink>
         <h1 className="fonte-display text-xl font-bold">Recordes</h1>
-        <span className="w-14" />
+        {/* Equilibra o botão da esquerda para o título ficar centrado de fato. */}
+        <span className="w-[5.5rem]" aria-hidden />
       </header>
 
       {linhas.length === 0 ? (
@@ -48,24 +82,93 @@ export function Records() {
           </span>
           <p className="text-suave">Nenhuma partida ainda.</p>
           <p className="text-sm text-tenue">
-            Jogue qualquer coisa e o histórico começa a aparecer aqui.
+            Jogue qualquer coisa e o histórico começa a aparecer aqui — ou importe um backup de
+            outra máquina.
           </p>
         </Painel>
       ) : (
         <>
           <Resumo linhas={linhas} />
 
-          <ul className="escalonar flex flex-col gap-3">
-            {linhas.map((l, i) => (
-              <li key={l.jogo.id} style={{ '--i': i } as React.CSSProperties}>
-                <LinhaRecorde jogo={l.jogo} entrada={l.entrada} />
-              </li>
-            ))}
-          </ul>
+          {grupos.map((g) => (
+            <section key={g.categoria} className="flex flex-col gap-3">
+              <CabecalhoCategoria categoria={g.categoria} nota={g.nota} />
 
-          <Ferramentas onLimpar={limparTudo} exportar={exportar} importar={importar} />
+              {g.linhas.length === 0 ? (
+                <p className="text-sm text-tenue">
+                  Nenhum jogo desta matéria ainda — nada aqui é um 0, é um espaço em branco.
+                </p>
+              ) : (
+                <ul className={GRADE_DE_JOGOS}>
+                  {g.linhas.map((l, i) => (
+                    <li key={l.jogo.id} style={{ '--i': i } as React.CSSProperties}>
+                      <LinhaRecorde jogo={l.jogo} entrada={l.entrada} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
         </>
       )}
+
+      {/* Fora do `if`: importar backup é justamente o que se faz numa máquina
+          onde ainda não há recorde nenhum. */}
+      <Transferencia
+        banco={banco}
+        exportar={exportar}
+        onJuntar={juntarCom}
+        onSubstituir={substituirPor}
+        onLimpar={limparTudo}
+      />
+    </div>
+  )
+}
+
+/**
+ * Cabeçalho do grupo: o mesmo rótulo e a mesma cor do menu, mais a nota da
+ * matéria.
+ *
+ * "em 3 de 5" anda colado na nota pelo mesmo motivo do Nerdômetro grande: a
+ * nota mede só o que foi jogado, então sozinha ela mente por omissão. E matéria
+ * sem nenhuma partida não mostra 0 — mostra que não foi jogada.
+ */
+function CabecalhoCategoria({
+  categoria,
+  nota,
+}: {
+  categoria: Categoria
+  nota: NotaCategoria | undefined
+}) {
+  const cor = CORES_CATEGORIA[categoria]
+  const jogada = nota !== undefined && nota.nota !== null
+
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <h2
+        className={`fonte-display text-sm font-semibold tracking-[0.2em] uppercase ${cor.texto}`}
+      >
+        {ROTULO_CATEGORIA[categoria]}
+      </h2>
+
+      {jogada && (
+        <span
+          className="font-mono text-lg tabular leading-none font-bold"
+          style={{ color: corDaNota(nota.nota as number) }}
+        >
+          {nota.nota}
+        </span>
+      )}
+
+      <span className="h-px flex-1 bg-borda" />
+
+      <span className="text-xs text-tenue">
+        {nota === undefined
+          ? ''
+          : jogada
+            ? `em ${nota.jogados} de ${nota.jogos}`
+            : `nunca jogada · ${nota.jogos} jogos`}
+      </span>
     </div>
   )
 }
@@ -117,7 +220,6 @@ function Numero({
 
 function LinhaRecorde({ jogo, entrada }: { jogo: JogoModule; entrada: Entrada }) {
   const [aberta, setAberta] = useState(false)
-  const cor = CORES_CATEGORIA[jogo.categoria]
   const historico = entrada.historico
 
   const media =
@@ -147,9 +249,8 @@ function LinhaRecorde({ jogo, entrada }: { jogo: JogoModule; entrada: Entrada })
               </span>
             )}
           </span>
+          {/* Sem a categoria aqui: ela virou o cabeçalho do grupo. */}
           <span className="block truncate text-sm text-tenue">
-            <span className={cor.texto}>{ROTULO_CATEGORIA[jogo.categoria]}</span>
-            {' · '}
             {entrada.partidas} partida{entrada.partidas > 1 ? 's' : ''} ·{' '}
             {quando(entrada.ultimaEmISO)}
           </span>
@@ -316,93 +417,5 @@ function Evolucao({ historico, recorde }: { historico: readonly Partida[]; recor
         <span className="text-acento">— — recorde {recorde}</span>
       </figcaption>
     </figure>
-  )
-}
-
-function Ferramentas({
-  onLimpar,
-  exportar,
-  importar,
-}: {
-  onLimpar: () => void
-  exportar: () => string
-  importar: (texto: string) => boolean
-}) {
-  const [confirmando, setConfirmando] = useState(false)
-  const [json, setJson] = useState<string | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
-
-  const copiar = async () => {
-    const texto = exportar()
-    setJson(texto)
-    try {
-      await navigator.clipboard.writeText(texto)
-      setAviso('copiado para a área de transferência')
-    } catch {
-      // Sem permissão de clipboard: o textarea abaixo serve para copiar à mão.
-      setAviso('selecione o texto abaixo e copie')
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3 border-t border-borda pt-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <Botao variante="secundario" tamanho="md" onClick={copiar}>
-          Exportar recordes
-        </Botao>
-        <Botao
-          variante="secundario"
-          tamanho="md"
-          onClick={() => {
-            const texto = window.prompt('Cole aqui o JSON exportado:')
-            if (texto === null) return
-            setAviso(importar(texto) ? 'recordes importados' : 'JSON inválido — nada mudou')
-          }}
-        >
-          Importar
-        </Botao>
-        {aviso && <span className="text-sm text-suave">{aviso}</span>}
-      </div>
-
-      {json !== null && (
-        <textarea
-          readOnly
-          value={json}
-          onFocus={(e) => e.currentTarget.select()}
-          className="h-40 w-full rounded-xl border border-borda bg-fundo-alt p-3 font-mono text-xs text-suave"
-        />
-      )}
-
-      {confirmando ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-erro">Apagar todos os recordes? Não dá para desfazer.</p>
-          <Botao
-            tamanho="md"
-            onClick={() => {
-              onLimpar()
-              setConfirmando(false)
-            }}
-            className="bg-erro text-fundo shadow-none hover:bg-erro"
-          >
-            Apagar
-          </Botao>
-          <button
-            type="button"
-            onClick={() => setConfirmando(false)}
-            className="text-sm text-suave hover:text-texto"
-          >
-            cancelar
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setConfirmando(true)}
-          className="self-start text-sm text-tenue transition-colors hover:text-erro"
-        >
-          apagar todos os recordes
-        </button>
-      )}
-    </div>
   )
 }

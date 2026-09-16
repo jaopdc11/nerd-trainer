@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # O repositório local nasceu em `master`. Aceitar os dois nomes evita um
+    # deploy que silenciosamente nunca dispara.
+    branches: [main, master]
   workflow_dispatch:
 
 # Permissões exigidas pelo deploy-pages: o token precisa publicar no Pages e
@@ -27,6 +29,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Os testes são a trava do deploy: os datasets gerados são versionados, e
+      # é a suíte que confere que nenhum deles saiu torto.
       - run: npm run test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3

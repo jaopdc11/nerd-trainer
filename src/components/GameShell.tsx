@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { href } from '@/core/route'
 import type { JogoModule } from '@/core/types'
-import { CORES_CATEGORIA, IconeJogo } from './ui'
+import { BotaoLink, CORES_CATEGORIA, IconeJogo } from './ui'
 
 /** Cabeçalho, instruções e navegação — o que toda mecânica precisa em volta. */
 export function GameShell({ jogo, children }: { jogo: JogoModule; children: React.ReactNode }) {
@@ -11,12 +11,14 @@ export function GameShell({ jogo, children }: { jogo: JogoModule; children: Reac
   return (
     <div className="flex flex-col gap-5">
       <header className="flex items-center justify-between gap-3">
-        <a
+        <BotaoLink
           href={href({ nome: 'menu' })}
-          className="flex items-center gap-1.5 text-sm text-tenue transition-colors hover:text-texto"
+          variante="voltar"
+          tamanho="md"
+          className="shrink-0 gap-1.5"
         >
           <span aria-hidden>←</span> jogos
-        </a>
+        </BotaoLink>
 
         <h1 className="flex min-w-0 items-center gap-2.5">
           <IconeJogo icone={jogo.icone} categoria={jogo.categoria} tamanho="sm" />

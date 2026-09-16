@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nerd Trainer">
+  <!--
+    ICONE DO NERD TRAINER
+    Conceito: a letra pi (o simbolo-mae do app, cujo carro-chefe e decorar casas de pi),
+    desenhada em NEON verde-primavera sobre um quadrado escuro do "terminal noturno".
+    Nada de cerebro clichê: pi diz "memorizacao nerd" na hora.
+
+    Por que caixa propria: a aba do navegador varia entre claro e escuro, entao o icone
+    carrega o proprio fundo (quadrado arredondado quase preto) e nunca some.
+
+    Cores tiradas de src/index.css (convertidas de oklch para hex por fidelidade em
+    rasterizadores/favicons que ainda nao leem oklch):
+      fundo        oklch(0.15 0.018 265) -> #080b13
+      borda        oklch(0.31 0.028 265) -> #29303f
+      acento       oklch(0.82 0.17 162)  -> #2fe5a2
+      acento-forte oklch(0.88 0.19 162)  -> #19fdb0
+
+    Por que o traco e GROSSO (~8.5u num viewBox de 64): a 16x16 cada unidade vira 0,25px;
+    8,5u = ~2,1px de traco, o minimo para nao sumir. Detalhe fino morreria no favicon,
+    entao pi e feito de tres barras cheias, sem serifa, sem curva de perna.
+  -->
+
+  <!-- Caixa: quadrado arredondado escuro com borda sutil para nao "vazar" em fundo escuro -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#080b13" stroke="#29303f" stroke-width="1.5" />
+
+  <!-- Letra pi, centrada em (32,32). Tres retangulos cheios; cantos levemente arredondados
+       so para tirar o aspecto de "bloco de pixel", sem perder peso. -->
+  <g fill="#2fe5a2">
+    <!-- Barra de cima: transpassa as duas pernas e sobra um pouco de cada lado -->
+    <rect x="13" y="18.5" width="38" height="9" rx="3.5" />
+    <!-- Perna esquerda -->
+    <rect x="19.5" y="24" width="9" height="23" rx="2.5" />
+    <!-- Perna direita -->
+    <rect x="35.5" y="24" width="9" height="23" rx="2.5" />
+  </g>
+</svg>

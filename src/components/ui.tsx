@@ -13,14 +13,24 @@ export const CORES_CATEGORIA: Record<Categoria, { texto: string; fundo: string; 
   matematica: { texto: 'text-mat', fundo: 'bg-mat-fundo', borda: 'group-hover:border-mat' },
   fisica: { texto: 'text-fis', fundo: 'bg-fis-fundo', borda: 'group-hover:border-fis' },
   quimica: { texto: 'text-qui', fundo: 'bg-qui-fundo', borda: 'group-hover:border-qui' },
+  geografia: { texto: 'text-geo', fundo: 'bg-geo-fundo', borda: 'group-hover:border-geo' },
+  humanas: { texto: 'text-hum', fundo: 'bg-hum-fundo', borda: 'group-hover:border-hum' },
 }
 
-type Variante = 'primario' | 'secundario' | 'discreto'
+type Variante = 'primario' | 'perigo' | 'voltar' | 'secundario' | 'discreto'
 type Tamanho = 'md' | 'lg'
 
 const VARIANTE: Record<Variante, string> = {
   primario:
     'bg-acento text-fundo font-semibold shadow-[0_0_24px_-6px_var(--color-acento)] hover:bg-acento-forte',
+  // Irmã da primária, em vermelho: mesmo peso visual, sentido oposto. Para
+  // ação que termina alguma coisa e o jogador precisa achar sem procurar.
+  perigo:
+    'bg-erro text-fundo font-semibold shadow-[0_0_24px_-6px_var(--color-erro)] hover:brightness-110',
+  // Navegação, não ação do jogo: azul para não disputar com o neon do acerto
+  // nem com o vermelho do que termina a partida.
+  voltar:
+    'bg-mat-fundo text-mat font-semibold border border-mat/40 hover:bg-mat/25 hover:border-mat',
   secundario: 'border border-borda bg-superficie text-texto hover:border-borda-forte hover:bg-superficie-alta',
   discreto: 'text-tenue hover:text-suave',
 }
@@ -30,20 +40,36 @@ const TAMANHO: Record<Tamanho, string> = {
   lg: 'px-6 py-3 text-base',
 }
 
+/**
+ * As classes, separadas do elemento.
+ *
+ * Existe porque "voltar ao menu" é navegação de verdade — precisa ser `<a>`
+ * para abrir em nova aba, ser copiável e ser lido como link —, e ainda assim
+ * tem que parecer o mesmo botão. Duplicar a string de classe entre os dois era
+ * garantir que um dia só um deles mudaria.
+ */
+export function classesBotao(variante: Variante, tamanho: Tamanho, extra = ''): string {
+  // `active:scale` dá o retorno tátil que faz o clique parecer registrado.
+  return `inline-flex items-center justify-center rounded-xl transition-all duration-150 motion-safe:active:scale-[0.97] ${VARIANTE[variante]} ${TAMANHO[tamanho]} ${extra}`
+}
+
 export function Botao({
   variante = 'primario',
   tamanho = 'lg',
   className = '',
   ...props
 }: ComponentProps<'button'> & { variante?: Variante; tamanho?: Tamanho }) {
-  return (
-    <button
-      type="button"
-      // `active:scale` dá o retorno tátil que faz o clique parecer registrado.
-      className={`rounded-xl transition-all duration-150 motion-safe:active:scale-[0.97] ${VARIANTE[variante]} ${TAMANHO[tamanho]} ${className}`}
-      {...props}
-    />
-  )
+  return <button type="button" className={classesBotao(variante, tamanho, className)} {...props} />
+}
+
+/** O mesmo botão, mas é um link de verdade. */
+export function BotaoLink({
+  variante = 'secundario',
+  tamanho = 'lg',
+  className = '',
+  ...props
+}: ComponentProps<'a'> & { variante?: Variante; tamanho?: Tamanho }) {
+  return <a className={classesBotao(variante, tamanho, className)} {...props} />
 }
 
 /** Painel padrão: a superfície de que quase tudo no app é feito. */

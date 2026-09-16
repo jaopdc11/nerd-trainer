@@ -7,13 +7,15 @@ import type { Rng } from './rng'
  * storage e engines.
  */
 
-export const CATEGORIAS = ['matematica', 'fisica', 'quimica'] as const
+export const CATEGORIAS = ['matematica', 'fisica', 'quimica', 'geografia', 'humanas'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
 export const ROTULO_CATEGORIA: Record<Categoria, string> = {
   matematica: 'Matemática',
   fisica: 'Física',
   quimica: 'Química',
+  geografia: 'Geografia',
+  humanas: 'Humanas',
 }
 
 export type Mecanica = 'sequencia' | 'grade' | 'flashcard' | 'gerador'
@@ -113,11 +115,26 @@ export interface ConfigSequencia {
 // Mecânica B — grade preenchida em ordem livre
 // ---------------------------------------------------------------------------
 
+/** Onde a célula fica quando a grade é um mapa: contorno, ou ponto se for minúscula. */
+export type FormaNoMapa = { readonly d: string } | { readonly x: number; readonly y: number }
+
 export interface CelulaGrade {
   readonly id: string
-  /** 1-based, como em CSS grid. */
+  /** 1-based, como em CSS grid. Ignorado no layout de mapa. */
   readonly linha: number
   readonly coluna: number
+  /** Só no layout de mapa. */
+  readonly forma?: FormaNoMapa
+  /** Agrupa o gabarito do fim: continente, região. */
+  readonly secao?: string
+  /**
+   * Mensagem exibida quando esta célula é preenchida.
+   *
+   * Existe para o jogo poder dizer algo sobre uma resposta sem deixar de
+   * aceitá-la: a resposta pontua normalmente e a mensagem aparece ao lado. É
+   * deliberadamente genérico — o dado fica no jogo, não na engine.
+   */
+  readonly aviso?: string
   /** Pista sempre visível na célula, como o número atômico. */
   readonly rotulo?: string
   readonly resposta: EspecResposta
@@ -129,11 +146,40 @@ export interface CelulaGrade {
   readonly grupo?: string
 }
 
+/**
+ * Como a grade é desenhada.
+ *
+ * A lógica da mecânica B — ordem livre, cada acerto caindo no lugar certo, o
+ * que sobra em vermelho — não depende de a coisa ser uma tabela periódica ou um
+ * planeta. Só o desenho depende, então é só o desenho que troca aqui.
+ */
+export type LayoutGrade =
+  | { readonly tipo: 'celulas' }
+  | {
+      readonly tipo: 'mapa'
+      readonly largura: number
+      readonly altura: number
+      /** Desenhados e inertes: sem eles o mapa fica esburacado. */
+      readonly inertes: readonly { readonly id: string; readonly d: string }[]
+    }
+
 export interface ConfigGrade {
   readonly linhas: number
   readonly colunas: number
   readonly celulas: readonly CelulaGrade[]
   readonly teclado: Teclado
+  readonly layout?: LayoutGrade
+  /**
+   * Conquistas dentro da grade: um subconjunto de células que, completo, vale
+   * um recado.
+   *
+   * Existe porque nem toda grade é uma coisa só. No mapa-múndi as 195 respostas
+   * da ONU são o alvo de verdade e os 9 territórios são extra — sem isto, fechar
+   * a lista da ONU passaria batido no meio de um tabuleiro de 204.
+   */
+  readonly marcos?: readonly { readonly ids: readonly string[]; readonly texto: string }[]
+  /** Partida cronometrada. Ausente = sem relógio, como na tabela periódica. */
+  readonly limiteSegundos?: number
   /**
    * 'livre': digita qualquer resposta e ela cai na célula certa.
    * 'sorteada': o motor destaca uma célula vazia por vez.
@@ -150,6 +196,16 @@ export interface ConfigGrade {
 export type Conteudo =
   | { readonly kind: 'texto'; readonly valor: string }
   | { readonly kind: 'mathml'; readonly valor: string }
+  /**
+   * Arquivo em `public/`, carregado sob demanda pelo navegador.
+   *
+   * Não entra no bundle de propósito: as 195 bandeiras somam 1,2 MB, e a da
+   * Sérvia sozinha tem 177 KB por causa do brasão. Como asset estático, cada
+   * carta paga só a sua — a mediana é de 0,8 KB — e o resto do app não paga
+   * nada. `alt` é obrigatório porque a imagem *é* a pergunta: sem ele o jogo
+   * fica impossível no leitor de tela.
+   */
+  | { readonly kind: 'imagem'; readonly valor: string; readonly alt: string }
 
 export type Carta =
   | {
