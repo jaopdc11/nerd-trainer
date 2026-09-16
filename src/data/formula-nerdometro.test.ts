@@ -54,6 +54,15 @@ describe('a fórmula exibida', () => {
     }
   })
 
+  it('os limites do somatório ficam ao lado do sigma, não embaixo', () => {
+    // `<munder>` empilha o "i ∈ J" sob o Σ, e o MathML nativo do navegador
+    // renderiza isso colado — ilegível. `\\nolimits` força `<msub>`. Tirar o
+    // `\\displaystyle` não bastou: `\\dfrac` reimpõe display style nos dois lados.
+    // É a única parte da legibilidade que dá para verificar sem olhar a tela.
+    expect(FORMULA_NOTA, 'somatório com limites empilhados').not.toContain('<munder')
+    expect(FORMULA_NOTA).toContain('<msub')
+  })
+
   it('todo símbolo da fórmula está na legenda', () => {
     expect(LEGENDA.length).toBeGreaterThanOrEqual(7)
     const naLegenda = LEGENDA.map((l) => l.simbolo.replace(/<[^>]+>/g, '')).join(' ')

@@ -12,6 +12,14 @@
  * defeito mais constrangedor possível. Agora tem índice, conjunto de
  * somatório e uma legenda dizendo o que cada símbolo é.
  *
+ * Os limites do somatório vão ao LADO do sigma, não embaixo: com
+ * limites embaixo o KaTeX emite `<munder>`, e o MathML nativo do navegador
+ * empilha o `i ∈ J` colado no próprio sigma — ilegível. `\nolimits` força
+ * `<msub>`, que é a mesma matemática e cabe na linha. Tirar o `\displaystyle`
+ * não bastou: `\dfrac` reimpõe display style nos dois lados da fração. O teste
+ * confere `munder = 0` no MathML gerado, porque é a única parte disso que dá
+ * para verificar sem olhar a tela.
+ *
  * O expoente **é lido de `src/core/nerdometro.ts`** em vez de digitado aqui.
  * Uma página que explica a conta e mostra um número diferente do que o código
  * usa mente com autoridade. Se alguém mudar `CURVA` e esquecer de rodar o
@@ -45,8 +53,8 @@ const gama = String(CURVA).replace('.', '{,}')
  */
 const FORMULAS = {
   nota: String.raw`
-    N \;=\; \frac{\displaystyle\sum_{i \in J} p_i \, f_i^{\,\gamma}}
-                 {\displaystyle\sum_{i \in J} p_i}
+    N \;=\; \dfrac{\sum\nolimits_{i \in J} \, p_i \, f_i^{\,\gamma}}
+                  {\sum\nolimits_{i \in J} \, p_i}
   `,
   fracao: String.raw`
     f_i \;=\; \min\!\left(1,\; \frac{r_i}{m_i}\right)
