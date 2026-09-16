@@ -12,7 +12,11 @@
 export interface OpcoesTexto {
   /** Remove artigos e preposições soltas ("a segunda lei de Newton"). */
   readonly ignorarArtigos?: boolean
-  /** Aceita erro de digitação de 1 caractere. Ver `tolerarTypo` em `EspecResposta`. */
+  /**
+   * Perdoa erro de digitação, num limite que escala com o tamanho da resposta
+   * (um caractere a cada sete, teto em três). Ligado por omissão; vale desligar
+   * só onde as respostas são curtas e parecidas entre si — grego, prefixos SI.
+   */
   readonly tolerarTypo?: boolean
 }
 
@@ -81,6 +85,10 @@ export interface Contexto {
    * Sem isso, a tolerância a erro de digitação aceitaria "Cobalto" onde a
    * resposta era "Cobre" — ou seja, daria a resposta de outro item como certa.
    * Ambiguidade nunca é resolvida a favor do jogador.
+   *
+   * Podem vir cruas ou já normalizadas: o validador passa tudo pela mesma régua
+   * antes de comparar. Quanto mais frouxa a tolerância, mais esta trava é o que
+   * segura o jogo em pé.
    */
   readonly vizinhanca?: ReadonlySet<string>
 }

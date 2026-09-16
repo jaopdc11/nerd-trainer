@@ -44,13 +44,75 @@ export function normalizarTexto(texto: string, ignorarArtigos = false): string {
 }
 
 /**
- * Distância de Levenshtein com corte: para assim que fica claro que passou de
- * `limite`. Só usamos limite 1, então a matriz completa seria desperdício.
+ * Cola tudo: tira espaço e qualquer separador que `semPontuacao` não conheça.
+ *
+ * Roda **depois** de `normalizarTexto` inteiro, e é por isso que não bagunça a
+ * ordem das etapas: `semArtigos` precisa dos espaços para achar as fronteiras de
+ * palavra, e insere espaços no lugar do artigo removido — só quando esse
+ * trabalho terminou é que os espaços deixam de ter serventia.
+ */
+export const compactar = (s: string): string => s.replace(/[^0-9a-z]/gi, '')
+
+/**
+ * As chaves de comparação de um texto: forma compactada, sem espaço nenhum.
+ *
+ * São **até duas** porque quem digita sem espaço também digita sem enxergar
+ * artigo: em "republicademocraticadocongo" não existe fronteira de palavra para
+ * `semArtigos` achar o "do", e tirar "do" de dentro de palavra colada arrancaria
+ * pedaço de nome de verdade (Do-minicana, Lon-dres). Então a forma aceita é
+ * registrada nas duas versões — com e sem os artigos — e basta uma casar.
+ *
+ * A primeira é sempre a principal: é ela que entra na distância de edição.
+ */
+export function chavesDeTexto(texto: string, ignorarArtigos = true): readonly string[] {
+  const comArtigos = compactar(normalizarTexto(texto, false))
+  if (!ignorarArtigos) return [comArtigos]
+  const semOsArtigos = compactar(normalizarTexto(texto, true))
+  return semOsArtigos === comArtigos ? [comArtigos] : [semOsArtigos, comArtigos]
+}
+
+/** Só a chave principal — o que a maioria das comparações quer. */
+export const chaveDeTexto = (texto: string, ignorarArtigos = true): string =>
+  chavesDeTexto(texto, ignorarArtigos)[0] as string
+
+/**
+ * Quantos caracteres de erro uma forma aceita perdoa, pelo tamanho dela.
+ *
+ * Escala em vez de ser fixo em 1 porque errar não é um evento por resposta, é
+ * uma taxa por tecla: "República Centro-Africana" colada dá 23 caracteres, e
+ * exigir 22 certos e 1 errado é exigir quase perfeição justamente onde digitar
+ * é mais trabalhoso. Um erro a cada 7 caracteres, que é a mesma régua de antes
+ * ("sete letras valem um erro") aplicada até o fim em vez de só no primeiro
+ * degrau: 7→1, 14→2, 21→3.
+ *
+ * O teto de 3 é deliberado: acima disso a distância de edição deixa de
+ * significar "errei de dedo" e passa a significar "lembrei de outro país", e aí
+ * quem decide já não é a misericórdia, é a trava de vizinhança.
+ */
+export const LIMITE_MAXIMO_DE_ERRO = 3
+export const CARACTERES_POR_ERRO = 7
+export const limiteDeErro = (tamanho: number): number =>
+  Math.min(LIMITE_MAXIMO_DE_ERRO, Math.floor(tamanho / CARACTERES_POR_ERRO))
+
+/**
+ * Distância de Damerau-Levenshtein (variante OSA) com corte: para assim que
+ * fica claro que passou de `limite`.
+ *
+ * Damerau e não Levenshtein puro porque a troca de teclas vizinhas é o erro de
+ * digitação mais comum que existe — "rebpulica" por "republica" — e no
+ * Levenshtein ela custa 2, o mesmo que dois erros independentes. Aqui custa 1,
+ * que é o que ela é: um dedo fora de hora.
+ *
+ * O corte não é enfeite: a validação roda esta função contra todas as formas do
+ * baralho a cada resposta, e a matriz completa de 195 países seria desperdício.
  */
 export function distancia(a: string, b: string, limite = 1): number {
   if (a === b) return 0
   if (Math.abs(a.length - b.length) > limite) return limite + 1
 
+  // Três linhas da matriz: a anterior basta para inserção/remoção/troca, e a
+  // transposição precisa enxergar duas linhas atrás.
+  let doisAtras: number[] = []
   let anterior = Array.from({ length: b.length + 1 }, (_, i) => i)
 
   for (let i = 1; i <= a.length; i++) {
@@ -59,17 +121,24 @@ export function distancia(a: string, b: string, limite = 1): number {
 
     for (let j = 1; j <= b.length; j++) {
       const custo = a[i - 1] === b[j - 1] ? 0 : 1
-      const valor = Math.min(
+      let valor = Math.min(
         (atual[j - 1] ?? 0) + 1,
         (anterior[j] ?? 0) + 1,
         (anterior[j - 1] ?? 0) + custo,
       )
+
+      // Transposição de adjacentes: "ab" onde se esperava "ba", custo 1.
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        valor = Math.min(valor, (doisAtras[j - 2] ?? 0) + 1)
+      }
+
       atual.push(valor)
       if (valor < menorDaLinha) menorDaLinha = valor
     }
 
     // Toda a linha já passou do limite: nenhuma continuação melhora isso.
     if (menorDaLinha > limite) return limite + 1
+    doisAtras = anterior
     anterior = atual
   }
 
