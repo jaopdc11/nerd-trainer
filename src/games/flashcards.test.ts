@@ -4,8 +4,9 @@ import { mulberry32 } from '@/core/rng'
 import type { Carta, JogoFlashcard } from '@/core/types'
 import { ALFABETO_GREGO } from '@/data/alfabeto-grego'
 import { CONSTANTES_FISICAS } from '@/data/constantes-fisicas'
+import { PAISES } from '@/data/paises'
 import { PREFIXOS_SI } from '@/data/prefixos-si'
-import { alfabetoGrego, constantesFisicas, prefixosSI } from './flashcards'
+import { alfabetoGrego, bandeiras, constantesFisicas, prefixosSI } from './flashcards'
 
 const ESTRITO = { rigor: 'estrito' } as const
 
@@ -101,6 +102,55 @@ describe('prefixos SI', () => {
     semColisao(prefixosSI)
   })
 
+})
+
+/**
+ * As bandeiras rodam com a tolerância a erro de digitação **ligada**, e quem
+ * impede o ponto pelo país errado é a vizinhança — as outras 194 cartas. Aqui a
+ * montagem dela é a mesma da engine: formas cruas das demais cartas.
+ */
+describe('bandeiras', () => {
+  const cartas = baralho(bandeiras)
+  const carta = (id: string) => {
+    const c = cartas.find((k) => k.id === `bandeira-${id}`)
+    if (c?.tipo !== 'digitada') throw new Error(`carta ${id} não encontrada`)
+    return c
+  }
+
+  const responder = (id: string, texto: string) => {
+    const alvo = carta(id)
+    const vizinhanca = new Set(
+      cartas.flatMap((c) =>
+        c.id !== alvo.id && c.tipo === 'digitada' && c.resposta.tipo === 'texto'
+          ? c.resposta.aceitas
+          : [],
+      ),
+    )
+    return validar(texto, alvo.resposta, { rigor: 'estrito', vizinhanca }).veredito
+  }
+
+  it('tem uma carta por país com arquivo de bandeira', () => {
+    // Cresceu com os territórios, e Chipre do Norte e Somalilândia ficam fora
+    // porque o flag-icons não traz o SVG dos dois.
+    expect(cartas).toHaveLength(PAISES.filter((p) => p.bandeira).length)
+    for (const c of cartas) {
+      expect(c.tipo === 'digitada' && c.pergunta.kind === 'imagem', c.id).toBe(true)
+    }
+  })
+
+  it('aceita o nome colado e perdoa o dedo escorregado', () => {
+    expect(responder('cf', 'republicacentroafricana')).toBe('certo')
+    expect(responder('cf', 'rebpulicacentroafricana')).toBe('quase')
+    expect(responder('kg', 'quirquistao')).toBe('quase')
+  })
+
+  it('não dá o ponto do vizinho: Áustria não vale Austrália', () => {
+    expect(responder('au', 'austria')).toBe('errado')
+    expect(responder('at', 'australia')).toBe('errado')
+    // E o texto que encosta nas duas não vale para nenhuma.
+    expect(responder('au', 'austrlia')).toBe('errado')
+    expect(responder('ie', 'irlandia')).toBe('errado')
+  })
 })
 
 describe('constantes físicas', () => {

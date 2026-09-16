@@ -1,10 +1,25 @@
 import { aritmetica } from '@/games/aritmetica'
 import { euler, phi, pi, raiz2 } from '@/games/decimais'
 import { derivadasRapidas } from '@/games/derivadas-rapidas'
-import { alfabetoGrego, constantesFisicas, prefixosSI } from '@/games/flashcards'
+import { capitais } from '@/games/capitais'
+import { capitaisEstados } from '@/games/capitais-estados'
+import { cronologia } from '@/games/cronologia'
+import { estados } from '@/games/estados'
+import {
+  alfabetoGrego,
+  bandeiras,
+  constantesFisicas,
+  filosofia,
+  geometriaMolecular,
+  prefixosSI,
+  sociologia,
+} from '@/games/flashcards'
 import { formulas } from '@/games/formulas'
 import { fibonacciJogo, potencias2Jogo, primosJogo } from '@/games/inteiros'
+import { massaMolarJogo } from '@/games/massa-molar'
+import { numeroDeOxidacao } from '@/games/nox'
 import { ordemDeGrandeza } from '@/games/ordem-grandeza'
+import { paises } from '@/games/paises'
 import { tabelaPeriodica } from '@/games/tabela-periodica'
 import { CATEGORIAS } from './types'
 import type { Categoria, JogoModule } from './types'
@@ -32,6 +47,17 @@ export const JOGOS: readonly JogoModule[] = [
   constantesFisicas,
   prefixosSI,
   ordemDeGrandeza,
+  geometriaMolecular,
+  numeroDeOxidacao,
+  massaMolarJogo,
+  cronologia,
+  filosofia,
+  sociologia,
+  bandeiras,
+  paises,
+  capitais,
+  estados,
+  capitaisEstados,
 ]
 
 const porId = new Map(JOGOS.map((j) => [j.id, j]))

@@ -202,6 +202,13 @@ export function useGrid(
         // A célula pontuou; se ela tem algo a dizer, diz agora.
         if (celula.aviso) setNota(celula.aviso)
 
+        // Marco fechado com esta resposta. Só o primeiro que fechar aqui fala,
+        // para dois marcos simultâneos não brigarem pela mesma linha.
+        const marco = config.marcos?.find(
+          (m) => !m.ids.every((id) => preenchidas.has(id)) && m.ids.every((id) => proximas.has(id)),
+        )
+        if (marco) setNota(marco.texto)
+
         if (proximas.size === config.celulas.length) {
           finalizar(proximas.size, erros)
         } else if (config.ordem === 'sorteada') {
@@ -237,6 +244,7 @@ export function useGrid(
       alvoId,
       preenchidas,
       todasAsFormas,
+      config.marcos,
       erros,
       finalizar,
       sortearAlvo,
