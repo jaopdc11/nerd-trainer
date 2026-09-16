@@ -6,7 +6,7 @@ import {
   chaveRecorde,
   entradaDe,
   exportarJSON,
-  importarJSON,
+  juntar,
   persistir,
   registrar,
 } from './storage'
@@ -43,6 +43,17 @@ function ler(): Banco {
   return banco
 }
 
+/**
+ * Troca o banco inteiro e persiste. O backup pode trazer jogos que não existem
+ * mais nesta versão, então passa pela mesma limpeza da carga — senão a
+ * importação ressuscita entradas órfãs que a carga já tinha descartado.
+ */
+function aplicar(novo: Banco): void {
+  banco = limparOrfas(novo, JOGOS.map((j) => j.id))
+  persistir(banco)
+  notificar()
+}
+
 // Outra aba gravou: recarrega para não sobrescrever o recorde feito lá.
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', () => {
@@ -59,8 +70,10 @@ export interface ApiRecordes {
   limparTudo(): void
   /** JSON com tudo, para levar os recordes para outra máquina. */
   exportar(): string
-  /** Substitui o banco pelo JSON dado. `false` se o texto não for válido. */
-  importar(texto: string): boolean
+  /** Mantém o melhor de cada jogo entre o que existe aqui e o backup. */
+  juntarCom(vindo: Banco): void
+  /** Troca tudo pelo backup. Destrutivo: a UI confirma antes. */
+  substituirPor(vindo: Banco): void
 }
 
 export function useRecordes(): ApiRecordes {
@@ -88,16 +101,10 @@ export function useRecordes(): ApiRecordes {
 
   const exportar = useCallback(() => exportarJSON(banco), [])
 
-  const importar = useCallback((texto: string) => {
-    const novo = importarJSON(texto)
-    if (!novo) return false
-    banco = novo
-    persistir(banco)
-    notificar()
-    return true
-  }, [])
+  const juntarCom = useCallback((vindo: Banco) => aplicar(juntar(banco, vindo)), [])
+  const substituirPor = useCallback((vindo: Banco) => aplicar(vindo), [])
 
-  return { banco: atual, recordeDe, registrarRun, limparTudo, exportar, importar }
+  return { banco: atual, recordeDe, registrarRun, limparTudo, exportar, juntarCom, substituirPor }
 }
 
 export { chaveRecorde }
