@@ -22,3 +22,6 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# Diário pessoal — fica só na máquina
+DIARIO.md
