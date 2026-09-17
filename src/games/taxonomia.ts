@@ -72,7 +72,7 @@ function cartaSerVivo(s: SerVivo, rng: Rng): Carta {
     // ensina é o traço que decide — pulmão e leite, oito patas, dois pares de
     // antena. Mesmo papel do `porque` do nox.
     gabarito: `${s.grupo} — ${s.nome}: ${s.pista}`,
-    ...(s.aviso ? { aviso: s.aviso } : {}),
+    ...(s.aviso ? { explicacao: s.aviso } : {}),
   }
 }
 

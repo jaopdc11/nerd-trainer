@@ -20,6 +20,16 @@ export type EstadoFlashcard = 'pronto' | 'jogando' | 'fim'
 /** Tempo que o gabarito fica na tela depois de um erro. */
 const PAUSA_MS = 1100
 
+/**
+ * Quanto tempo a explicação da carta fica na tela.
+ *
+ * O mesmo número da conquista da grade, e pela mesma razão: longo o bastante
+ * para ser lido sem correr, curto o bastante para não alcançar a carta depois
+ * da seguinte. Quem responde rápido nem vê o relógio — cada carta que sai
+ * substitui a explicação da anterior.
+ */
+const DURACAO_EXPLICACAO_MS = 6000
+
 export interface SessaoFlashcard {
   readonly estado: EstadoFlashcard
   readonly carta: Carta | null
@@ -34,6 +44,16 @@ export interface SessaoFlashcard {
    * como na grade: é coisa que o jogo tem a dizer, não retorno sobre a tecla.
    */
   readonly nota: string | null
+  /**
+   * Ensino sobre a carta que acabou de sair. Some sozinha, ao contrário da
+   * `nota`.
+   *
+   * As duas dividiam o mesmo campo, e o resultado é que "a neuro-hipófise não
+   * fabrica nada" ficava pendurado por cima das cartas seguintes até o baralho
+   * acabar. Explicação é sobre uma carta e vale enquanto ela está fresca; a
+   * `nota` é posição do autor e fica.
+   */
+  readonly explicacao: string | null
   readonly duracaoMs: number
   iniciar(): void
   responder(texto: string): Veredito
@@ -55,13 +75,21 @@ export function useFlashcard(
   const [erros, setErros] = useState(0)
   const [correcao, setCorrecao] = useState<string | null>(null)
   const [nota, setNota] = useState<string | null>(null)
+  const [explicacao, setExplicacao] = useState<string | null>(null)
   const [duracaoMs, setDuracaoMs] = useState(0)
 
   const inicio = useRef(0)
   const runId = useRef(novoRunId())
   const pausa = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const relogioExplicacao = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  useEffect(() => () => clearTimeout(pausa.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(pausa.current)
+      clearTimeout(relogioExplicacao.current)
+    },
+    [],
+  )
 
   /**
    * Persiste o que já foi acertado sem encerrar nada.
@@ -102,6 +130,8 @@ export function useFlashcard(
     setErros(0)
     setCorrecao(null)
     setNota(null)
+    setExplicacao(null)
+    clearTimeout(relogioExplicacao.current)
     setDuracaoMs(0)
     runId.current = novoRunId()
     inicio.current = performance.now()
@@ -125,6 +155,16 @@ export function useFlashcard(
       // A carta saiu: se ela tem algo a dizer, diz agora — tenha sido acerto,
       // erro ou "não sei". O recado é sobre a resposta, não sobre o placar.
       if (resolvida.aviso) setNota(resolvida.aviso)
+
+      // A explicação é sempre reescrita, mesmo quando a carta nova não tem
+      // nenhuma: ela é sobre a carta que acabou de sair, e quem responde rápido
+      // não pode ficar lendo o comentário de duas cartas atrás. O relógio só
+      // cobre o caso oposto, de ele parar para pensar na carta seguinte.
+      setExplicacao(resolvida.explicacao ?? null)
+      clearTimeout(relogioExplicacao.current)
+      if (resolvida.explicacao) {
+        relogioExplicacao.current = setTimeout(() => setExplicacao(null), DURACAO_EXPLICACAO_MS)
+      }
 
       // 'quase' (typo perdoado, caixa errada em treino) conta como acerto, mas
       // a UI mostra a grafia certa — ensina sem punir.
@@ -254,9 +294,11 @@ export function useFlashcard(
 
   const reiniciar = useCallback(() => {
     clearTimeout(pausa.current)
+    clearTimeout(relogioExplicacao.current)
     setEstado('pronto')
     setCorrecao(null)
     setNota(null)
+    setExplicacao(null)
   }, [])
 
   return {
@@ -268,6 +310,7 @@ export function useFlashcard(
     posicao,
     correcao,
     nota,
+    explicacao,
     duracaoMs,
     iniciar,
     responder,

@@ -39,11 +39,19 @@ interface Grupo {
 /**
  * A mesma grade do menu.
  *
+ * `grid-cols-[minmax(0,1fr)]` na base, e não só `sm:grid-cols-2`: um `grid` sem
+ * coluna declarada usa `auto`, que **não encolhe abaixo do max-content dos
+ * itens**. Medido em 320px: a página inteira era desenhada com 428px de largura
+ * e rolava de lado — o cabeçalho do cartão (ícone + nome + pontuação) mandava
+ * na largura da tela toda. Com `minmax(0, 1fr)` a coluna aceita ser menor que o
+ * conteúdo e o `truncate` do nome volta a ter efeito.
+ *
  * Em coluna única, 26 jogos viram rolagem sem fim e cada card fica com um vão
  * morto no meio — a linha não tem conteúdo que justifique a largura da tela.
  * `items-start` para um card expandido não esticar os vizinhos da mesma fileira.
  */
-const GRADE_DE_JOGOS = 'escalonar grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3'
+const GRADE_DE_JOGOS =
+  'escalonar grid grid-cols-[minmax(0,1fr)] items-start gap-3 sm:grid-cols-2 xl:grid-cols-3'
 
 export function Records() {
   const { banco, recordeDe, limparTudo, exportar, juntarCom, substituirPor } = useRecordes()

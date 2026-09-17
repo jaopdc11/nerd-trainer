@@ -42,7 +42,7 @@ function cartaPopular(e: Especie): Carta {
       // as respostas são curtas e parecidas entre si.
     },
     gabarito: e.popular,
-    ...(e.aviso ? { aviso: e.aviso } : {}),
+    ...(e.aviso ? { explicacao: e.aviso } : {}),
   }
 }
 
@@ -51,7 +51,7 @@ function cartaPopular(e: Especie): Carta {
  *
  * Os três errados saem de `variantesDeCaixa`, embaralhados — no trinômio há
  * quatro erros possíveis e só três cabem, então qual deles fica de fora varia
- * por partida. O `aviso` da espécie **não** é repetido aqui: ele já sai na carta
+ * por partida. A explicação da espécie **não** é repetida aqui: ela já sai na carta
  * digitada da mesma espécie, e o recado sobre o nome revisto do tomate não tem
  * nada a ver com a pergunta sobre maiúscula.
  */

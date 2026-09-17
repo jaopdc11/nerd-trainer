@@ -119,11 +119,11 @@ describe('baralho', () => {
     }
   })
 
-  it('a ressalva do livro vira aviso, e só onde ela existe', () => {
+  it('a ressalva do livro vira explicação, e só onde ela existe', () => {
     for (const c of escolhas(7)) {
       if (c.id.startsWith('organela-onde-')) continue
       const e = ESTRUTURAS.find((x) => `organela-${x.nome}` === c.id)
-      expect(c.aviso, c.id).toBe(e?.ressalva)
+      expect(c.explicacao, c.id).toBe(e?.ressalva)
     }
   })
 })

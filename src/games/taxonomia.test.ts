@@ -118,13 +118,13 @@ describe('gabarito e recados', () => {
     }
   })
 
-  it('o aviso da alga-parda chega à carta', () => {
+  it('a explicação da alga-parda chega à carta', () => {
     // O recado sobre o reino Protista é a contraparte honesta de cobrar uma
     // resposta num ponto em que a classificação mudou: perdê-lo no caminho
     // entre o dataset e a carta transformaria a ressalva em silêncio.
     const c = carta(BARALHO, 'alga-parda')
-    expect(c.aviso).toBeDefined()
-    expect(BARALHO.filter((x) => x.aviso !== undefined)).toHaveLength(1)
+    expect(c.explicacao).toBeDefined()
+    expect(BARALHO.filter((x) => x.explicacao !== undefined)).toHaveLength(1)
   })
 })
 

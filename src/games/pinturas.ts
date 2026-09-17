@@ -53,9 +53,10 @@ function cartaQuadro(q: Quadro): Carta {
         }
       : { kind: 'texto', valor: `${q.obra}, ${q.ano}` },
     dica: 'pintor',
-    // O mesmo uso que as bandeiras fazem do campo: dizer algo sobre a resposta
-    // sem deixar de aceitá-la. Aqui ele desfaz as confusões de título.
-    ...(q.aviso ? { aviso: q.aviso } : {}),
+    // Dizer algo sobre a resposta sem deixar de aceitá-la; aqui, desfazer as
+    // confusões de título. Explicação e não aviso: passa com a carta, porque é
+    // sobre aquele quadro e mais nenhum.
+    ...(q.aviso ? { explicacao: q.aviso } : {}),
     resposta: {
       tipo: 'texto',
       canonica: q.pintor,

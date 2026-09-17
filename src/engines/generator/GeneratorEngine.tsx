@@ -212,7 +212,7 @@ function Alternativas({ sessao }: { sessao: SessaoGerador }) {
     // Entrada escalonada, como no flashcard: quatro opções aparecendo juntas de
     // supetão é um bloco piscando; uma atrás da outra o olho acompanha a ordem
     // em que vai ler. O `--i` é o índice, e a `.escalonar` cuida do atraso.
-    <ul className="escalonar grid gap-3 sm:grid-cols-2">
+    <ul className="escalonar grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
       {sessao.exercicio.alternativas.map((alt, i) => (
         <li key={`${sessao.exercicio?.chave}-${i}`} style={{ '--i': i } as React.CSSProperties}>
           <button

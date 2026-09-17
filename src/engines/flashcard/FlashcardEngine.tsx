@@ -66,6 +66,17 @@ export function FlashcardEngine({
             </p>
           )}
 
+          {/* Explicação da carta que saiu, que é outra coisa: passa sozinha, e
+              por isso vem em tom neutro — o vermelho acima é de quem tem uma
+              posição a defender, e gastar a mesma cor aqui faria a nota
+              desaparecer no meio do comentário didático. Texto corrido, não
+              caixa-alta de manchete: isto é para ser lido, não notado. */}
+          {sessao.explicacao && (
+            <p className="motion-safe:animate-surgir rounded-xl border border-borda-forte bg-superficie-alta px-4 py-2.5 text-center text-sm leading-relaxed text-suave sm:text-base">
+              {sessao.explicacao}
+            </p>
+          )}
+
           {sessao.carta.tipo === 'digitada' ? (
             <AnswerInput
               modo="linha"
@@ -235,7 +246,7 @@ function Alternativas({ sessao }: { sessao: SessaoFlashcard }) {
   if (sessao.carta?.tipo !== 'escolha') return null
 
   return (
-    <ul className="escalonar grid gap-3 sm:grid-cols-2">
+    <ul className="escalonar grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
       {sessao.carta.alternativas.map((alt, i) => (
         <li key={`${sessao.carta?.id}-${i}`} style={{ '--i': i } as React.CSSProperties}>
           <button

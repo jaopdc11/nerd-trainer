@@ -69,16 +69,16 @@ describe('baralho de nomes científicos', () => {
     }
   })
 
-  it('o aviso da espécie chega à carta digitada, e só a ela', () => {
-    const comAviso = BARALHO.filter((c) => c.aviso !== undefined).map((c) => c.id)
-    expect(comAviso.sort()).toEqual(
+  it('a explicação da espécie chega à carta digitada, e só a ela', () => {
+    const comExplicacao = BARALHO.filter((c) => c.explicacao !== undefined).map((c) => c.id)
+    expect(comExplicacao.sort()).toEqual(
       ESPECIES.filter((e) => e.aviso)
         .map((e) => `nome-${e.id}`)
         .sort(),
     )
     // O tomate tem carta de grafia e aviso; o recado sobre o nome revisto não
     // tem nada a ver com a pergunta sobre maiúscula, e repeti-lo ali seria ruído.
-    expect(carta(BARALHO, 'grafia-solanum-lycopersicum').aviso).toBeUndefined()
+    expect(carta(BARALHO, 'grafia-solanum-lycopersicum').explicacao).toBeUndefined()
   })
 })
 

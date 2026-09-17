@@ -97,13 +97,13 @@ describe('baralho', () => {
     }
   })
 
-  it('leva o aviso das cartas que confundem', () => {
+  it('leva a explicação das cartas que confundem', () => {
     const cartas = digitadas(7)
-    const comAviso = cartas.filter((c) => c.aviso !== undefined).map((c) => c.id)
-    expect(comAviso.sort()).toEqual(
+    const comExplicacao = cartas.filter((c) => c.explicacao !== undefined).map((c) => c.id)
+    expect(comExplicacao.sort()).toEqual(
       QUADROS.filter((q) => q.aviso).map((q) => `pintura-${q.id}`).sort(),
     )
-    expect(comAviso).toContain('pintura-grito')
+    expect(comExplicacao).toContain('pintura-grito')
   })
 
   it('nenhuma forma aceita é compartilhada por dois pintores', () => {

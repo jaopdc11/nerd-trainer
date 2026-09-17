@@ -141,9 +141,9 @@ function cartaCaso(caso: Caso, rng: Rng): Carta {
     // O que faltava era o par de eixos e a marca da relação.
     gabarito: descreverCaso(caso),
     // A classificação disputada vai para a tela **acertada ou errada**, que é o
-    // que o `aviso` faz: esconder a disputa do jogador seria ensinar uma certeza
-    // que a literatura escolar não tem. Mesmo tratamento das capitais.
-    ...(caso.disputa ? { aviso: caso.disputa } : {}),
+    // que a `explicacao` faz: esconder a disputa do jogador seria ensinar uma
+    // certeza que a literatura escolar não tem.
+    ...(caso.disputa ? { explicacao: caso.disputa } : {}),
   }
 }
 

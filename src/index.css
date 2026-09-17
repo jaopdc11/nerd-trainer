@@ -314,6 +314,26 @@ body::before {
   }
 }
 
+/*
+ * Telefone estreito: a linha do conjunto J é a mais longa das três e, em
+ * 1,3rem, terminava em "∧ (nᵢ ≥ 2" com o resto fora da tela. O bloco rola —
+ * mas fórmula que precisa de rolagem para ser lida é fórmula que ninguém lê.
+ * Neste tamanho as três linhas cabem inteiras.
+ */
+@media (max-width: 400px) {
+  .formula math {
+    font-size: 1.05rem;
+  }
+}
+
+/* E no telefone mais estreito que ainda existe (320px), onde a caixa útil cai
+ * para 246px e a linha do conjunto J ainda pedia 271. */
+@media (max-width: 340px) {
+  .formula math {
+    font-size: 0.92rem;
+  }
+}
+
 /* A mesma regra, menor, para os símbolos soltos da legenda. */
 .simbolo math {
   font-size: 1.05rem;

@@ -27,8 +27,8 @@ import type { Carta, JogoFlashcard } from '@/core/types'
  *
  * Sobra o autor, que é fato de história literária e é o que a prova cobra. E onde
  * o autor não basta — Machado, romântico em 1876 e realista em 1881 — a obra
- * entra entre parênteses e decide. Nesses casos a carta ainda diz, no aviso, por
- * que os parênteses estão ali.
+ * entra entre parênteses e decide. Nesses casos a carta ainda explica por que os
+ * parênteses estão ali.
  *
  * **Por que escolha e não digitação.** Aqui a régua aponta para o lado oposto ao
  * do baralho de obras. Lá a resposta é um nome próprio que a pessoa tem de
@@ -91,7 +91,7 @@ function cartaEscola(a: AutorLiterario, rng: Rng): Carta {
     gabarito: `${a.escola} (${exibirPeriodo(info)}) — ${a.obra}${quando}: ${info.marca}`,
     ...(a.precisaDaObra
       ? {
-          aviso: `A escola é da obra, não da pessoa: ${a.nome} atravessou mais de uma, e é o que está entre parênteses que decide.`,
+          explicacao: `A escola é da obra, não da pessoa: ${a.nome} atravessou mais de uma, e é o que está entre parênteses que decide.`,
         }
       : {}),
   }

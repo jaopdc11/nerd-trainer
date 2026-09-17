@@ -47,6 +47,7 @@ const GIRO = 90 + (360 - GRAUS) / 2
 
 export function Nerdometro({ banco }: { banco: Banco }) {
   const [aberto, setAberto] = useState(false)
+  const [quais, setQuais] = useState(false)
   const m = calcular(banco)
   const animada = useContagem(m.nota)
 
@@ -59,7 +60,18 @@ export function Nerdometro({ banco }: { banco: Banco }) {
       <div className="flex flex-wrap items-center gap-6 p-5">
         <Medidor nota={m.nota} animada={animada} />
 
-        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+        {/*
+          `min-w-56` é o que faz o `flex-wrap` acima servir para alguma coisa.
+
+          Com `min-w-0`, esta coluna aceitava encolher até o fim, então nunca
+          havia "não coube" e a linha nunca quebrava: em 320px o medidor ficava
+          com 144px e sobrava uma faixa de ~100px para o texto, onde
+          "Enciclopédia ambulante" quebrava no meio da palavra e a etiqueta
+          "NERDÔMETRO" saía cortada. Declarar a largura mínima em que o texto
+          ainda se lê transforma o aperto em quebra de linha, que é o que o
+          `flex-wrap` estava ali para fazer.
+        */}
+        <div className="flex min-w-56 flex-1 flex-col gap-2.5">
           <p className="text-xs tracking-[0.25em] text-tenue uppercase">Nerdômetro</p>
 
           <div>
@@ -83,31 +95,48 @@ export function Nerdometro({ banco }: { banco: Banco }) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {/* A cobertura vem primeiro e é a trava contra tirar 100 maxando um
-                jogo só: desde que a nota passou a medir só o que foi jogado,
-                ela não significa nada sem o "de quantos". */}
-            <Etiqueta className={m.jogados * 2 < m.total ? 'text-quase' : 'text-suave'}>
-              em {m.jogados} de {m.total} jogos
-            </Etiqueta>
-            {/* A carência precisa aparecer: sem isto, quem testou um jogo vê a
-                nota parada e fica procurando o bug. */}
-            {m.emExperiencia > 0 && (
-              <Etiqueta className="text-quase">
-                {m.emExperiencia === 1
-                  ? '1 em experiência — jogue de novo para entrar na nota'
-                  : `${m.emExperiencia} em experiência — jogue de novo para entrarem na nota`}
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* A cobertura vem primeiro e é a trava contra tirar 100 maxando um
+                  jogo só: desde que a nota passou a medir só o que foi jogado,
+                  ela não significa nada sem o "de quantos". */}
+              <Etiqueta className={m.jogados * 2 < m.total ? 'text-quase' : 'text-suave'}>
+                em {m.jogados} de {m.total} jogos
               </Etiqueta>
-            )}
-            <Etiqueta className="text-suave">{m.partidas} partidas</Etiqueta>
-            <Etiqueta className="text-suave">{formatarTempo(m.tempoMs)} jogados</Etiqueta>
-            {m.dominados > 0 && (
-              <Etiqueta
-                style={{ color: tom, borderColor: corDaNota(m.nota, -0.18) }}
-              >
-                {m.dominados} no máximo
-              </Etiqueta>
-            )}
+              {/* A carência precisa aparecer: sem isto, quem testou um jogo vê a
+                  nota parada e fica procurando o bug. */}
+              {m.emExperiencia.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setQuais((v) => !v)}
+                  aria-expanded={quais}
+                  className="group rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-quase"
+                >
+                  <Etiqueta className="flex items-center gap-1.5 text-quase transition-colors group-hover:border-quase/60 group-hover:bg-quase-fundo/20">
+                    {m.emExperiencia.length === 1
+                      ? '1 em experiência'
+                      : `${m.emExperiencia.length} em experiência`}
+                    <span
+                      aria-hidden
+                      className={`transition-transform duration-200 ${quais ? 'rotate-180' : ''}`}
+                    >
+                      ⌄
+                    </span>
+                  </Etiqueta>
+                </button>
+              )}
+              <Etiqueta className="text-suave">{m.partidas} partidas</Etiqueta>
+              <Etiqueta className="text-suave">{formatarTempo(m.tempoMs)} jogados</Etiqueta>
+              {m.dominados > 0 && (
+                <Etiqueta
+                  style={{ color: tom, borderColor: corDaNota(m.nota, -0.18) }}
+                >
+                  {m.dominados} no máximo
+                </Etiqueta>
+              )}
+            </div>
+
+            {quais && <EmExperiencia linhas={m.emExperiencia} />}
           </div>
         </div>
 
@@ -168,15 +197,19 @@ function ComoSubir({
       <ul className="flex flex-col gap-0.5">
         {passos.map((p) => (
           <li key={p.jogoId}>
+            {/* `flex-wrap` e não `shrink-0` no alvo: "chegue a 118 (faltam
+                107)" é o que a linha existe para dizer, então quem cede é o
+                nome do jogo — mas em 320px nem os dois juntos cabiam numa
+                linha, e o alvo saía da tela. Agora ele desce. */}
             <a
               href={href({ nome: 'jogo', jogoId: p.jogoId })}
-              className="-mx-1.5 flex items-baseline gap-1.5 rounded-md px-1.5 py-0.5 text-sm text-suave transition-colors hover:bg-superficie-alta hover:text-texto"
+              className="-mx-1.5 flex flex-wrap items-baseline gap-x-1.5 rounded-md px-1.5 py-0.5 text-sm text-suave transition-colors hover:bg-superficie-alta hover:text-texto"
             >
               <span aria-hidden className="font-mono text-xs text-tenue">
                 {p.icone}
               </span>
-              <span className="truncate">{p.nome}:</span>
-              <span className="shrink-0">
+              <span className="min-w-0 truncate">{p.nome}:</span>
+              <span>
                 chegue a{' '}
                 <strong className="font-mono tabular font-bold" style={{ color: tom }}>
                   {p.alvo}
@@ -188,6 +221,56 @@ function ComoSubir({
         ))}
       </ul>
     </div>
+  )
+}
+
+/**
+ * Quais jogos estão esperando a segunda partida.
+ *
+ * A etiqueta dizia "8 em experiência — jogue de novo" e não dizia de quê: para
+ * descobrir, o jogador tinha de abrir os 72 critérios e conferir um por um qual
+ * tinha recorde e ainda estava fora da nota. Aqui cada linha é a tarefa inteira
+ * — o jogo, quanto ele já fez e o link para jogar de novo.
+ *
+ * Expansível, e não sempre aberta, pela conta do enunciado do problema: são 8
+ * hoje e podem ser 20 amanhã, e 20 nomes empurrariam o medidor para fora da
+ * primeira tela justamente de quem está começando. Em duas colunas pela mesma
+ * razão.
+ */
+function EmExperiencia({ linhas }: { linhas: readonly LinhaNerdometro[] }) {
+  return (
+    <section
+      aria-label="Jogos em experiência"
+      className="motion-safe:animate-surgir flex flex-col gap-1.5 rounded-xl border border-quase/30 bg-quase-fundo/10 p-3"
+    >
+      <p className="text-xs text-suave">
+        {linhas.length === 1
+          ? 'jogado uma vez só — a segunda partida faz ele entrar na nota:'
+          : 'jogados uma vez só — a segunda partida faz cada um entrar na nota:'}
+      </p>
+
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-0.5 sm:grid-cols-2">
+        {linhas.map((l) => (
+          <li key={l.jogoId}>
+            <a
+              href={href({ nome: 'jogo', jogoId: l.jogoId })}
+              className="-mx-1.5 flex items-baseline gap-1.5 rounded-md px-1.5 py-0.5 text-sm text-suave transition-colors hover:bg-superficie-alta hover:text-texto"
+            >
+              <span aria-hidden className="font-mono text-xs text-tenue">
+                {l.icone}
+              </span>
+              <span className="truncate">{l.nome}</span>
+              {/* O recorde junto porque a segunda partida não precisa superá-lo
+                  para valer: quem vê "12/20" sabe que já tem meio caminho e que
+                  o que falta é repetir, não bater. */}
+              <span className="ml-auto shrink-0 font-mono text-xs tabular text-tenue">
+                {l.recorde}/{l.meta}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -380,24 +463,37 @@ function CabecalhoCategoria({
  * mentira bem formatada.
  */
 
+/**
+ * Uma linha do painel dos critérios.
+ *
+ * Seis colunas de largura fixa somam 452px de conteúdo mínimo, e a `section` do
+ * medidor é `overflow-hidden`: em 320px isso não virava rolagem, virava
+ * **conteúdo cortado sem aviso** — a porcentagem e o `recorde/meta` ficavam
+ * fora da tela e nada indicava que existiam. Medido: 157px de sobra.
+ *
+ * A saída é a barra descer para a própria linha no telefone (`order-last` +
+ * `w-full`, que numa flex-wrap força a quebra) e o nome virar elástico em vez
+ * de ter 10rem cravados. Da largura do `sm` em diante o layout de uma linha só
+ * volta, porque ali ele cabe e lê melhor.
+ */
 function Linha({ linha, sugerido }: { linha: LinhaNerdometro; sugerido: boolean }) {
   const pct = Math.round(linha.fracao * 100)
 
   return (
     <a
       href={href({ nome: 'jogo', jogoId: linha.jogoId })}
-      className="group flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-superficie-alta"
+      className="group flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-2 py-2 transition-colors hover:bg-superficie-alta"
     >
       <span
         aria-hidden
-        className={`w-10 shrink-0 text-center font-mono text-sm ${
+        className={`w-8 shrink-0 text-center font-mono text-sm sm:w-10 ${
           linha.dominado ? 'text-acento' : 'text-tenue'
         }`}
       >
         {linha.icone}
       </span>
 
-      <span className="flex w-40 shrink-0 items-center gap-1.5 truncate text-sm">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm sm:w-40 sm:flex-none">
         {linha.nome}
         {linha.dominado && (
           <span aria-label="no máximo" className="text-acento">
@@ -406,7 +502,7 @@ function Linha({ linha, sugerido }: { linha: LinhaNerdometro; sugerido: boolean 
         )}
       </span>
 
-      <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-superficie-alta">
+      <span className="relative order-last h-2 w-full overflow-hidden rounded-full bg-superficie-alta sm:order-none sm:w-auto sm:flex-1">
         <span
           className={`block h-full rounded-full transition-[width] duration-700 ${
             linha.dominado ? 'bg-acento' : pct > 0 ? 'bg-borda-forte' : ''
@@ -415,7 +511,7 @@ function Linha({ linha, sugerido }: { linha: LinhaNerdometro; sugerido: boolean 
         />
       </span>
 
-      <span className="w-20 shrink-0 text-right font-mono text-xs text-tenue tabular">
+      <span className="shrink-0 text-right font-mono text-xs text-tenue tabular sm:w-20">
         {linha.recorde}/{linha.meta}
       </span>
 
@@ -427,7 +523,10 @@ function Linha({ linha, sugerido }: { linha: LinhaNerdometro; sugerido: boolean 
         {pct}%
       </span>
 
-      <span className="w-14 shrink-0 text-right text-[0.7rem] text-tenue">
+      {/* O potencial é uma dica, não um dado da linha: no telefone ele sai para
+          o nome do jogo caber, e quem quer saber onde ganhar nota tem o
+          "como subir" logo acima, que diz a mesma coisa por extenso. */}
+      <span className="hidden w-14 shrink-0 text-right text-[0.7rem] text-tenue sm:block">
         {sugerido ? <span className="text-quase">+{linha.potencial.toFixed(1)}</span> : ''}
       </span>
     </a>

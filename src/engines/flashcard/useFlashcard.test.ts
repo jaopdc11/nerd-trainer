@@ -196,6 +196,78 @@ describe('recado preso a uma carta', () => {
   })
 })
 
+describe('explicação da carta, que passa', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const COM_EXPLICACAO: ConfigFlashcard = {
+    ...BARALHO,
+    montarBaralho: () => [
+      { ...carta('c1', 'alfa'), explicacao: 'a neuro-hipófise não fabrica nada' },
+      CARTAS[1] as Carta,
+      CARTAS[2] as Carta,
+    ],
+  }
+
+  it('sai com a carta e vai embora sozinha', () => {
+    const { hook } = montar(COM_EXPLICACAO)
+    expect(hook.result.current.explicacao).toBeNull()
+
+    responder(hook, 'alfa')
+    expect(hook.result.current.explicacao).toBe('a neuro-hipófise não fabrica nada')
+
+    act(() => {
+      vi.advanceTimersByTime(6100)
+    })
+    expect(hook.result.current.explicacao).toBeNull()
+  })
+
+  it('a carta seguinte apaga a explicação da anterior, sem esperar o relógio', () => {
+    // O bug relatado: o aviso da neuro-hipófise ficava na tela em cima da carta
+    // da melatonina, que não tem nada com ele.
+    const { hook } = montar(COM_EXPLICACAO)
+    responder(hook, 'alfa')
+
+    responder(hook, 'beta')
+    expect(hook.result.current.explicacao).toBeNull()
+  })
+
+  it('não é a `nota`: uma não apaga a outra', () => {
+    const { hook } = montar({
+      ...BARALHO,
+      montarBaralho: () => [
+        { ...carta('c1', 'alfa'), aviso: 'o jogo tem algo a dizer' },
+        { ...carta('c2', 'beta'), explicacao: 'sobre esta carta e mais nenhuma' },
+        CARTAS[2] as Carta,
+      ],
+    })
+
+    responder(hook, 'alfa')
+    responder(hook, 'beta')
+    expect(hook.result.current.nota).toBe('o jogo tem algo a dizer')
+    expect(hook.result.current.explicacao).toBe('sobre esta carta e mais nenhuma')
+
+    act(() => {
+      vi.advanceTimersByTime(6100)
+    })
+    expect(hook.result.current.explicacao).toBeNull()
+    expect(hook.result.current.nota, 'a posição do autor fica').toBe('o jogo tem algo a dizer')
+  })
+
+  it('some quando a partida recomeça', () => {
+    const { hook } = montar(COM_EXPLICACAO)
+    responder(hook, 'alfa')
+    act(() => {
+      hook.result.current.iniciar()
+    })
+    expect(hook.result.current.explicacao).toBeNull()
+  })
+})
+
 describe('autor que responde por várias cartas', () => {
   /**
    * Regressão: a vizinhança era montada por `id`, e id não é resposta.

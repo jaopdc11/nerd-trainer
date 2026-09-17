@@ -73,7 +73,7 @@ function cartaProducao(h: Endocrino, rng: Rng): Carta {
     // Quem errou precisa ver por que é esta glândula e não a vizinha: repetir o
     // nome dela não ensina a diferença entre córtex e medula da suprarrenal.
     gabarito: `${h.glandula} — ${h.detalhe}`,
-    ...(h.ressalva ? { aviso: h.ressalva } : {}),
+    ...(h.ressalva ? { explicacao: h.ressalva } : {}),
   }
 }
 
@@ -95,7 +95,7 @@ function cartaEfeito(h: Endocrino, rng: Rng): Carta {
     // A glândula entra no gabarito mesmo não sendo a pergunta: é a metade do
     // conteúdo que esta direção não cobrou.
     gabarito: `${h.nome}, ${h.glandula} — ${h.detalhe}`,
-    ...(h.ressalva ? { aviso: h.ressalva } : {}),
+    ...(h.ressalva ? { explicacao: h.ressalva } : {}),
   }
 }
 

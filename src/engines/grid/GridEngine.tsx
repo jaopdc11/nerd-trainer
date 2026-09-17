@@ -130,6 +130,16 @@ export function GridEngine({
             </p>
           )}
 
+          {/* Conquista, que é outra coisa: comemora um marco fechado e passa.
+              As duas dividiam o mesmo canal, e "Os sete do crânio, todos" ficava
+              pendurado até o fim da partida — em verde, porque é elogio, e não
+              no vermelho de quem tem um recado a dar. */}
+          {sessao.conquista && (
+            <p className="motion-safe:animate-surgir rounded-xl border border-acento/40 bg-acento-fundo/25 px-4 py-2.5 text-center text-base font-semibold text-acento sm:text-lg">
+              {sessao.conquista}
+            </p>
+          )}
+
           {/* Repetir o que você já acertou não é o mesmo que chutar errado, e
               num mapa de 195 células sem este aviso o jogador fica repetindo a
               mesma tentativa sem entender por que nada acende. */}

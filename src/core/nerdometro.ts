@@ -445,8 +445,12 @@ export interface Nerdometro {
   /**
    * Jogados uma vez só e ainda fora da nota. O mostrador fala deles: sem isso,
    * a carência vira um número que não mexe e ninguém sabe por quê.
+   *
+   * A lista, e não só a contagem, porque "8 em experiência" mandava o jogador
+   * adivinhar quais oito eram — e a resposta ("jogue de novo") não serve para
+   * nada sem os nomes. A tela mostra a contagem e abre a lista.
    */
-  readonly emExperiencia: number
+  readonly emExperiencia: readonly LinhaNerdometro[]
   readonly total: number
   readonly dominados: number
   readonly partidas: number
@@ -908,7 +912,7 @@ export function calcular(banco: Banco): Nerdometro {
     categorias,
     proximoPasso: [...linhas].sort((a, b) => b.potencial - a.potencial)[0] ?? null,
     jogados: linhas.filter((l) => l.naNota).length,
-    emExperiencia: linhas.filter((l) => l.recorde > 0 && !l.naNota).length,
+    emExperiencia: linhas.filter((l) => l.recorde > 0 && !l.naNota),
     total: linhas.length,
     dominados: linhas.filter((l) => l.dominado).length,
     partidas: todas.reduce((s, e) => s + e.partidas, 0),

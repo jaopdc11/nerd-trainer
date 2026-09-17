@@ -514,7 +514,7 @@ describe('a estreia não conta', () => {
 
     expect(m.nota).toBe(so.nota)
     expect(m.jogados).toBe(1)
-    expect(m.emExperiencia).toBe(1)
+    expect(m.emExperiencia.map((l) => l.jogoId)).toEqual(['ordem-de-grandeza'])
     expect(m.linhas.find((l) => l.jogoId === 'ordem-de-grandeza')?.naNota).toBe(false)
   })
 
@@ -523,7 +523,7 @@ describe('a estreia não conta', () => {
     const so = calcular({ versao: 1, entradas: { pi: entrada(50) } })
 
     expect(ruim.nota).toBeLessThan(so.nota)
-    expect(ruim.emExperiencia).toBe(0)
+    expect(ruim.emExperiencia).toHaveLength(0)
     expect(ruim.jogados).toBe(2)
   })
 
@@ -533,7 +533,7 @@ describe('a estreia não conta', () => {
     const m = calcular({ versao: 1, entradas: { 'alfabeto-grego': estreia(24) } })
     expect(m.linhas.find((l) => l.jogoId === 'alfabeto-grego')?.naNota).toBe(true)
     expect(m.nota).toBe(100)
-    expect(m.emExperiencia).toBe(0)
+    expect(m.emExperiencia).toHaveLength(0)
     expect(m.jogados).toBe(1)
   })
 
@@ -565,7 +565,7 @@ describe('a estreia não conta', () => {
         m.proximaFaixa?.faixa.minimo as number,
       )
     }
-    expect(m.emExperiencia).toBe(1)
+    expect(m.emExperiencia).toHaveLength(1)
   })
 })
 

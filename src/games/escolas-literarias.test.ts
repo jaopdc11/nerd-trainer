@@ -155,14 +155,14 @@ describe('perguntas e gabarito', () => {
     expect(texto(realista?.pergunta ?? { kind: 'texto', valor: '' })).toBe(
       'Machado de Assis (Memórias Póstumas de Brás Cubas)',
     )
-    expect(romantico?.aviso).toContain('atravessou mais de uma')
+    expect(romantico?.explicacao).toContain('atravessou mais de uma')
 
     // E ninguém mais carrega parênteses: seria meia-resposta de graça.
     for (const c of cartas) {
       const a = autorDa(c.id)
       if (!a.precisaDaObra) {
         expect(texto(c.pergunta), c.id).toBe(a.nome)
-        expect(c.aviso, c.id).toBeUndefined()
+        expect(c.explicacao, c.id).toBeUndefined()
       }
     }
   })

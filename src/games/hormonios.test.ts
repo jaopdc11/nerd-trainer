@@ -174,7 +174,7 @@ describe('distratores', () => {
   })
 })
 
-describe('gabarito e aviso', () => {
+describe('gabarito e explicação', () => {
   it('o gabarito abre pela resposta certa e explica por que é ela', () => {
     for (const seed of [7, 8]) {
       for (const c of escolhas(seed)) {
@@ -190,12 +190,12 @@ describe('gabarito e aviso', () => {
 
   it('ocitocina e ADH avisam que a neuro-hipófise só armazena', () => {
     // A resposta "hipotálamo" parece arbitrária para quem decorou
-    // "neuro-hipófise", e o aviso é o que impede o jogo de parecer errado.
+    // "neuro-hipófise", e a explicação é o que impede o jogo de parecer errado.
     for (const seed of [7, 8, 9]) {
       for (const c of escolhas(seed)) {
         const h = doId(c.id)
-        expect(c.aviso, c.id).toBe(h.ressalva)
-        if (h.glandula === 'hipotálamo') expect(c.aviso, c.id).toMatch(/neuro-hipófise/)
+        expect(c.explicacao, c.id).toBe(h.ressalva)
+        if (h.glandula === 'hipotálamo') expect(c.explicacao, c.id).toMatch(/neuro-hipófise/)
       }
     }
   })

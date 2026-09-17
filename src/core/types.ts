@@ -244,12 +244,22 @@ export type Conteudo =
     }
 
 /**
- * Recado que o jogo tem a dizer quando esta carta sai — acertada, errada ou
- * pulada, tanto faz.
+ * Duas coisas que a carta pode ter a dizer quando sai — acertada, errada ou
+ * pulada, tanto faz. A diferença entre elas não é de mecânica, é de propósito,
+ * e é por isso que são dois campos e não um com timer.
  *
- * O gêmeo do `aviso` de `CelulaGrade`, e existe pela mesma razão: o jogo pode
- * ter uma posição sobre uma resposta sem deixar de aceitá-la. A carta pontua
- * normalmente; o recado aparece ao lado e fica até o fim da partida.
+ * `aviso` é o gêmeo do `aviso` de `CelulaGrade`: posição do autor sobre uma
+ * resposta que o jogo aceita mesmo assim (ver `games/avisos.ts`). Fica na tela
+ * até o fim da partida, de propósito — não pode passar voando.
+ *
+ * `explicacao` é ensino sobre aquela carta: por que o gabarito é o que é, onde
+ * o livro escolar simplifica, que confusão de nome a resposta desfaz. Vale
+ * enquanto a carta está fresca e some sozinha, porque estava ficando pendurada
+ * sobre cartas seguintes que não têm nada com ela — o aviso da neuro-hipófise
+ * continuava na tela por cima da carta de melatonina.
+ *
+ * Uma carta pode ter as duas: a bandeira de Israel traz a posição do autor, e
+ * nada impede que também traga uma explicação sobre o nome do país.
  */
 export type Carta =
   | {
@@ -260,6 +270,7 @@ export type Carta =
       readonly resposta: EspecResposta
       readonly gabarito: string
       readonly aviso?: string
+      readonly explicacao?: string
     }
   | {
       readonly tipo: 'escolha'
@@ -269,6 +280,7 @@ export type Carta =
       readonly indiceCorreto: number
       readonly gabarito: string
       readonly aviso?: string
+      readonly explicacao?: string
     }
 
 export interface ConfigFlashcard {

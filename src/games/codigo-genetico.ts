@@ -63,12 +63,12 @@ function cartaCodon(codon: string, rng: Rng): Carta {
     alternativas: opcoes.map((t) => ({ kind: 'texto' as const, valor: rotulo(t) })),
     indiceCorreto: opcoes.indexOf(certo),
     gabarito: comOsIrmaos(certo),
-    // O recado do AUG fica na tela até o fim da partida, e é o único que vale
-    // isso: é a única carta do baralho cuja resposta certa esconde uma segunda
-    // função. Pôr um aviso em cada armadilha encheria a tela e nenhum seria
-    // lido — o resto do ensino cabe no gabarito, que aparece quando erra.
+    // O AUG é a única carta do baralho cuja resposta certa esconde uma segunda
+    // função, e por isso é a única que explica algo. Pôr explicação em cada
+    // armadilha encheria a tela e nenhuma seria lida — o resto do ensino cabe
+    // no gabarito, que aparece quando erra.
     ...(codon === CODON_INICIO
-      ? { aviso: 'AUG é também o códon de início: toda tradução começa por ele.' }
+      ? { explicacao: 'AUG é também o códon de início: toda tradução começa por ele.' }
       : {}),
   }
 }

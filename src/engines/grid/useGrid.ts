@@ -17,6 +17,15 @@ import type { CelulaGrade, ConfigGrade, ResultadoRun } from '@/core/types'
  * mesmo dataset servindo de flashcard sem virar outro jogo.
  */
 
+/**
+ * Quanto tempo a conquista fica na tela.
+ *
+ * Longo o bastante para ser lida sem correr (são frases de uma linha, mas no
+ * meio de uma partida cronometrada os olhos estão no tabuleiro), e curto o
+ * bastante para não estar mais lá quando o jogador fechar o marco seguinte.
+ */
+const DURACAO_CONQUISTA_MS = 6000
+
 export type EstadoGrade = 'pronto' | 'jogando' | 'fim'
 
 /**
@@ -51,6 +60,16 @@ export interface SessaoGrade {
    * sobre a última tecla.
    */
   readonly nota: string | null
+  /**
+   * Marco recém-fechado. Some sozinho, ao contrário da `nota`.
+   *
+   * Os dois compartilhavam o mesmo campo, e o resultado é que "Os sete do
+   * crânio, todos" ficava pendurado na tela pelo resto da partida — e com dois
+   * marcos fechados, o do quadril mais o do crânio, o jogador terminava o jogo
+   * lendo uma conquista de dois minutos atrás. Conquista é comemoração e passa;
+   * a `nota` é posição do autor sobre uma resposta e fica.
+   */
+  readonly conquista: string | null
   /** `null` quando a partida não é cronometrada. */
   readonly restanteMs: number | null
   /** Só depois do fim: as células que ficaram em branco. */
@@ -74,6 +93,8 @@ export function useGrid(
   const [duracaoMs, setDuracaoMs] = useState(0)
   const [aviso, setAviso] = useState<AvisoGrade | null>(null)
   const [nota, setNota] = useState<string | null>(null)
+  const [conquista, setConquista] = useState<string | null>(null)
+  const relogioConquista = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const inicio = useRef(0)
   const runId = useRef(novoRunId())
@@ -167,6 +188,8 @@ export function useGrid(
     setUltima(null)
     setAviso(null)
     setNota(null)
+    setConquista(null)
+    clearTimeout(relogioConquista.current)
     setDuracaoMs(0)
     setAlvoId(config.ordem === 'sorteada' ? sortearAlvo(vazio) : null)
     setEstado('jogando')
@@ -207,7 +230,11 @@ export function useGrid(
         const marco = config.marcos?.find(
           (m) => !m.ids.every((id) => preenchidas.has(id)) && m.ids.every((id) => proximas.has(id)),
         )
-        if (marco) setNota(marco.texto)
+        if (marco) {
+          setConquista(marco.texto)
+          clearTimeout(relogioConquista.current)
+          relogioConquista.current = setTimeout(() => setConquista(null), DURACAO_CONQUISTA_MS)
+        }
 
         if (proximas.size === config.celulas.length) {
           finalizar(proximas.size, erros)
@@ -312,6 +339,8 @@ export function useGrid(
     finalizar(preenchidasRef.current.size, errosRef.current)
   }, [cronometrado, estado, relogio.restanteMs, finalizar])
 
+  useEffect(() => () => clearTimeout(relogioConquista.current), [])
+
   const encerrar = useCallback(() => {
     if (estado === 'jogando') finalizar(preenchidas.size, erros)
   }, [estado, preenchidas.size, erros, finalizar])
@@ -332,6 +361,7 @@ export function useGrid(
     duracaoMs,
     aviso,
     nota,
+    conquista,
     restanteMs: cronometrado ? relogio.restanteMs : null,
     faltaram,
     iniciar,

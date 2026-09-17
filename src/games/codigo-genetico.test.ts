@@ -119,12 +119,12 @@ describe('gabarito', () => {
   })
 })
 
-describe('aviso', () => {
+describe('explicação', () => {
   it('só o AUG tem, porque só ele esconde uma segunda função', () => {
     for (const c of BARALHO) {
-      expect(c.aviso !== undefined, c.id).toBe(c.id === 'codon-AUG')
+      expect(c.explicacao !== undefined, c.id).toBe(c.id === 'codon-AUG')
     }
-    expect(cartaDe('AUG').aviso).toContain('códon de início')
+    expect(cartaDe('AUG').explicacao).toContain('códon de início')
   })
 })
 

@@ -167,7 +167,7 @@ describe('distratores', () => {
   })
 })
 
-describe('gabarito e avisos', () => {
+describe('gabarito e explicações', () => {
   it('o gabarito traz o quadrante e a marca, não só o nome errado de volta', () => {
     for (const c of escolhas(3)) {
       const caso = casoDa(c.id)
@@ -181,9 +181,9 @@ describe('gabarito e avisos', () => {
 
   it('o caso disputado leva a disputa para a tela, acertado ou errado', () => {
     for (const c of escolhas(5)) {
-      expect(c.aviso, c.id).toBe(casoDa(c.id).disputa)
+      expect(c.explicacao, c.id).toBe(casoDa(c.id).disputa)
     }
-    expect(escolhas(5).filter((c) => c.aviso !== undefined).length).toBeGreaterThanOrEqual(8)
+    expect(escolhas(5).filter((c) => c.explicacao !== undefined).length).toBeGreaterThanOrEqual(8)
   })
 })
 

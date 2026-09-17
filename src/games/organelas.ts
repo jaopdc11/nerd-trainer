@@ -60,9 +60,9 @@ function cartaFuncao(e: Estrutura, rng: Rng): Carta {
     // Quem errou precisa ver o que separa esta da vizinha, não o nome de novo:
     // "lisossomo" sozinho não ensina por que não era o peroxissomo.
     gabarito: `${e.nome} — ${e.sinal}`,
-    // A ressalva é sobre onde o livro escolar simplifica. Fica como aviso, e não
-    // no gabarito, porque vale mesmo quando a carta foi acertada.
-    ...(e.ressalva ? { aviso: e.ressalva } : {}),
+    // A ressalva é sobre onde o livro escolar simplifica. Fica como explicação,
+    // e não no gabarito, porque vale mesmo quando a carta foi acertada.
+    ...(e.ressalva ? { explicacao: e.ressalva } : {}),
   }
 }
 

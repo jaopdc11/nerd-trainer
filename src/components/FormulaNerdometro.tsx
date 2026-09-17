@@ -27,18 +27,37 @@ export function FormulaNerdometro() {
   const menor = pesos[pesos.length - 1] as number
 
   return (
-    <div className="flex flex-col gap-2 border-t border-borda pt-3 text-xs leading-relaxed text-tenue">
+    /*
+      Grid de uma coluna `minmax(0, 1fr)`, e não uma coluna flex.
+
+      A fórmula é a coisa mais larga do app: o MathML do somatório pede uns
+      340px e não quebra em lugar nenhum. O `overflow-x-auto` abaixo existe para
+      isso e não funcionava — um item de flex nasce com `min-width: auto`, que é
+      o min-content do conteúdo, e o bloco se recusava a encolher. Em 320px o
+      efeito era visível: a linha do conjunto J terminava em "∧ (nᵢ ≥ 2" e o
+      resto ficava fora da tela, sem rolagem que o alcançasse.
+
+      `min-w-0` no bloco não basta porque cada ancestral flex repõe o
+      `min-width: auto`; `minmax(0, 1fr)` resolve aqui dentro, sem depender de
+      ninguém lembrar de `min-w-0` no próximo painel que hospedar isto.
+    */
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2 border-t border-borda pt-3 text-xs leading-relaxed text-tenue">
       {/* MathML pré-renderizado no build, como as fórmulas de física: zero
           KaTeX em runtime. Fórmula escrita em ASCII numa página que se propõe a
           explicar a conta é o mesmo que não explicar. */}
-      <div className="formula flex flex-col items-center gap-5 overflow-x-auto py-4 text-texto">
+      {/* `mx-auto` em cada fórmula no lugar de `items-center` no pai: com
+          `align-items: center`, a fórmula que não cabe transborda dos DOIS
+          lados e o começo dela fica inalcançável por rolagem. Margem automática
+          centraliza quando sobra espaço e vira zero quando não sobra, que é
+          exatamente o que uma caixa rolável precisa. */}
+      <div className="formula flex min-w-0 flex-col gap-5 overflow-x-auto py-4 text-texto">
         {/* Gerado por scripts/gen-formula-nerdometro.mjs a partir do código. */}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
-        <div dangerouslySetInnerHTML={{ __html: FORMULA_NOTA }} />
+        <div className="mx-auto" dangerouslySetInnerHTML={{ __html: FORMULA_NOTA }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
-        <div className="text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_FRACAO }} />
+        <div className="mx-auto text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_FRACAO }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
-        <div className="text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_CONJUNTO }} />
+        <div className="mx-auto text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_CONJUNTO }} />
       </div>
 
       {/* Fórmula sem legenda é charada. */}
@@ -47,7 +66,9 @@ export function FormulaNerdometro() {
           <div key={l.oQueE} className="contents">
             {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
             <dt className="simbolo text-texto" dangerouslySetInnerHTML={{ __html: l.simbolo }} />
-            <dd className="text-suave">{l.oQueE}</dd>
+            {/* `min-w-0`: a coluna é `1fr`, e `1fr` não encolhe abaixo do
+                min-content da própria descrição sem isto. */}
+            <dd className="min-w-0 text-suave">{l.oQueE}</dd>
           </div>
         ))}
       </dl>
