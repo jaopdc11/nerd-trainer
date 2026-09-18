@@ -44,9 +44,16 @@ import type { Carta, JogoFlashcard } from '@/core/types'
  * entrada com as formas das outras cartas, e as outras sete cartas do bloco CFA
  * carregam exatamente a mesma forma — então qualquer typo encosta num vizinho e é
  * recusado. Fica assim de propósito: escrever certo continua pontuando, essas
- * moedas têm a saída curta ("franco CFA", "euro"), e mexer na trava para recuperar
- * a misericórdia derrubaria a única coisa que impede uma carta de dar o ponto da
- * outra.
+ * moedas têm a saída de uma palavra ("franco", "dólar", "euro"), e mexer na trava
+ * para recuperar a misericórdia derrubaria a única coisa que impede uma carta de
+ * dar o ponto da outra.
+ *
+ * **A forma curta vale em todas, inclusive nas compartilhadas** — decisão 3 do
+ * cabeçalho de `data/moedas.ts`, que mudou depois de medida. Eram 34 das 195
+ * cartas exigindo o qualificador (os dois CFA, o franco suíço, os três dólares de
+ * bloco), e nelas o jogador que sabia a resposta ainda perdia o ponto por não
+ * completar o nome. O fato que o qualificador carregava não se perdeu: sai no
+ * gabarito de toda carta, com o tamanho do bloco junto.
  */
 function cartaMoeda(p: Pais): Carta {
   // O dataset cobre exatamente os soberanos, e o teste é quem garante — o filtro
@@ -86,8 +93,8 @@ export const moedas: JogoFlashcard = {
   unidade: { singular: 'moeda', plural: 'moedas' },
   comoJogar: [
     'Aparece "Paraguai" e você escreve "guarani". São os 195 países soberanos.',
-    'A família basta quando a moeda é do país: "dólar" vale para o Canadá, "coroa" para a Suécia.',
-    'Nas moedas emprestadas ou compartilhadas, não: é preciso dizer "dólar americano", "franco CFA", "dólar do Caribe Oriental".',
+    'A família basta sempre: "dólar" vale para o Canadá e para o Equador, "franco" para o Congo e para o Senegal, "coroa" para a Suécia.',
+    'O gabarito devolve o nome inteiro — e, quando a moeda é de bloco, quantos países a dividem.',
     'O baralho vai até o fim: errar custa o ponto, não a partida.',
   ],
   config: () => ({

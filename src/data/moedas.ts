@@ -35,14 +35,23 @@
  *    dizendo "a moeda de 26 países desta lista" transforma a repetição na lição,
  *    que é justamente saber *quem* está na zona do euro e quem não está — Polônia,
  *    Suécia, Tchéquia e Hungria não estão.
- * 3. **Nas moedas compartilhadas, a forma curta não vale.** Em regra este dataset
- *    aceita só a família: "dólar" vale para o Canadá e "coroa" vale para a Suécia,
- *    porque o país está escrito na carta e o qualificador que falta é dedução, não
- *    conhecimento. Mas "franco" para o Senegal esconderia exatamente o fato (é o
- *    CFA, dividido com mais treze), e "dólar" para o Equador esconderia que o
- *    dólar é o *americano*, que é a única coisa interessante ali. Então `usd`,
- *    `xof`, `xaf`, `xcd`, `aud` e `chf` não carregam a forma curta, e
- *    `moedas.test.ts` guarda essa regra.
+ * 3. **A família sempre vale, inclusive na moeda compartilhada.** "dólar" vale
+ *    para o Canadá e vale para o Equador; "franco" vale para o Congo e vale para
+ *    o Senegal. A regra é uma só e não tem exceção: o país está escrito na carta,
+ *    então o qualificador que falta é dedução, não conhecimento — quem sabe que o
+ *    Senegal usa franco sabe qual franco é, porque não existe outro candidato.
+ *    `moedas.test.ts` cobra o invariante: se a canônica começa com um nome de
+ *    família, a família sozinha está entre as aceitas.
+ *
+ *    Era o contrário, e vale registrar por que virou. `usd`, `xof`, `xaf`, `xcd`,
+ *    `aud` e `chf` não carregavam a forma curta, pelo argumento de que "franco"
+ *    para o Senegal esconde o CFA e "dólar" para o Equador esconde que o dólar é
+ *    o *americano*. O argumento descreve um fato real e mira no alvo errado: o
+ *    que ele produzia era o jogador que **sabe** a resposta apanhando da
+ *    digitação em 34 das 195 cartas — e logo nas que mais se repetem no baralho,
+ *    onde a punição chega em série. O fato que se queria cobrar continua cobrado,
+ *    por quem tem competência para isso: o gabarito, que devolve o nome inteiro e
+ *    diz quantos países dividem a moeda (decisão 2).
  *
  * Os dois francos CFA aparecem separados — o da BCEAO (XOF, oeste) e o da BEAC
  * (XAF, centro) — porque são duas moedas, com dois bancos emissores, ainda que
@@ -99,8 +108,8 @@ export const MOEDAS: Readonly<Record<string, Moeda>> = {
   amd: { codigo: 'AMD', nome: 'dram', sinonimos: ['drama', 'dram armênio'] },
   aoa: { codigo: 'AOA', nome: 'kwanza', sinonimos: ['cuanza'] },
   ars: { codigo: 'ARS', nome: 'peso argentino', sinonimos: ['peso'] },
-  // Compartilhado com Kiribati, Nauru e Tuvalu: sem forma curta. Ver a decisão 3.
-  aud: { codigo: 'AUD', nome: 'dólar australiano', sinonimos: ['dólar da Austrália'] },
+  // Compartilhado com Kiribati, Nauru e Tuvalu, que não têm moeda própria.
+  aud: { codigo: 'AUD', nome: 'dólar australiano', sinonimos: ['dólar', 'dólar da Austrália'] },
   azn: { codigo: 'AZN', nome: 'manat azeri', sinonimos: ['manat', 'manat do Azerbaijão'] },
   bam: { codigo: 'BAM', nome: 'marco conversível', sinonimos: ['marco', 'marco bósnio'] },
   bbd: { codigo: 'BBD', nome: 'dólar de Barbados', sinonimos: ['dólar', 'dólar barbadense'] },
@@ -118,8 +127,8 @@ export const MOEDAS: Readonly<Record<string, Moeda>> = {
   bzd: { codigo: 'BZD', nome: 'dólar de Belize', sinonimos: ['dólar', 'dólar belizenho'] },
   cad: { codigo: 'CAD', nome: 'dólar canadense', sinonimos: ['dólar', 'dólar do Canadá'] },
   cdf: { codigo: 'CDF', nome: 'franco congolês', sinonimos: ['franco', 'franco do Congo'] },
-  // Compartilhado com Liechtenstein: sem forma curta. Ver a decisão 3.
-  chf: { codigo: 'CHF', nome: 'franco suíço', sinonimos: ['franco da Suíça'] },
+  // Compartilhado com Liechtenstein, por união monetária desde 1924.
+  chf: { codigo: 'CHF', nome: 'franco suíço', sinonimos: ['franco', 'franco da Suíça'] },
   clp: { codigo: 'CLP', nome: 'peso chileno', sinonimos: ['peso'] },
   cny: { codigo: 'CNY', nome: 'yuan', sinonimos: ['renminbi', 'yuan renminbi', 'iuane', 'yuan chinês'] },
   cop: { codigo: 'COP', nome: 'peso colombiano', sinonimos: ['peso'] },
@@ -229,19 +238,19 @@ export const MOEDAS: Readonly<Record<string, Moeda>> = {
   tzs: { codigo: 'TZS', nome: 'xelim tanzaniano', sinonimos: ['xelim'] },
   uah: { codigo: 'UAH', nome: 'hryvnia', sinonimos: ['grívnia', 'hryvnya', 'hrivna'] },
   ugx: { codigo: 'UGX', nome: 'xelim ugandense', sinonimos: ['xelim', 'xelim de Uganda'] },
-  // Compartilhado por oito países desta lista: sem forma curta. Ver a decisão 3.
-  usd: { codigo: 'USD', nome: 'dólar americano', sinonimos: ['dólar dos Estados Unidos', 'dólar norte-americano', 'dólar estadunidense'] },
+  // Compartilhado por oito países desta lista — seis deles sem moeda própria.
+  usd: { codigo: 'USD', nome: 'dólar americano', sinonimos: ['dólar', 'dólar dos Estados Unidos', 'dólar norte-americano', 'dólar estadunidense'] },
   uyu: { codigo: 'UYU', nome: 'peso uruguaio', sinonimos: ['peso'] },
   uzs: { codigo: 'UZS', nome: 'som uzbeque', sinonimos: ['som', 'sum', 'sum uzbeque'] },
   ves: { codigo: 'VES', nome: 'bolívar', sinonimos: ['bolívar soberano', 'bolívar digital', 'bolívar venezuelano'] },
   vnd: { codigo: 'VND', nome: 'dong', sinonimos: ['dongue', 'dong vietnamita'] },
   vuv: { codigo: 'VUV', nome: 'vatu', sinonimos: ['vatu de Vanuatu'] },
   wst: { codigo: 'WST', nome: 'tala', sinonimos: ['tala samoano'] },
-  // Os dois CFA e o dólar do Caribe: o qualificador É o fato, então nenhum dos
-  // três aceita a forma curta. Ver a decisão 3 do cabeçalho.
-  xaf: { codigo: 'XAF', nome: 'franco CFA da África Central', sinonimos: ['franco CFA', 'CFA', 'franco CFA BEAC'] },
-  xcd: { codigo: 'XCD', nome: 'dólar do Caribe Oriental', sinonimos: ['dólar caribenho', 'dólar das Caraíbas Orientais'] },
-  xof: { codigo: 'XOF', nome: 'franco CFA da África Ocidental', sinonimos: ['franco CFA', 'CFA', 'franco CFA BCEAO'] },
+  // Os dois CFA e o dólar do Caribe: quem sabe que o Chade usa franco sabe qual,
+  // então a família passa igual às outras. Ver a decisão 3 do cabeçalho.
+  xaf: { codigo: 'XAF', nome: 'franco CFA da África Central', sinonimos: ['franco CFA', 'franco', 'CFA', 'franco CFA BEAC'] },
+  xcd: { codigo: 'XCD', nome: 'dólar do Caribe Oriental', sinonimos: ['dólar', 'dólar caribenho', 'dólar das Caraíbas Orientais'] },
+  xof: { codigo: 'XOF', nome: 'franco CFA da África Ocidental', sinonimos: ['franco CFA', 'franco', 'CFA', 'franco CFA BCEAO'] },
   yer: { codigo: 'YER', nome: 'rial iemenita', sinonimos: ['rial', 'riyal', 'rial do Iêmen'] },
   zar: { codigo: 'ZAR', nome: 'rand', sinonimos: ['rand sul-africano'] },
   zmw: { codigo: 'ZMW', nome: 'kwacha zambiano', sinonimos: ['kwacha'] },

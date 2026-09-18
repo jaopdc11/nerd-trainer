@@ -136,7 +136,7 @@ const ELEMENTOS = [
   [114, 'Fl', 'Fleróvio', []],
   [115, 'Mc', 'Moscóvio', []],
   [116, 'Lv', 'Livermório', []],
-  [117, 'Ts', 'Tenessino', []],
+  [117, 'Ts', 'Tenesso', []],
   [118, 'Og', 'Oganessônio', []],
 ]
 

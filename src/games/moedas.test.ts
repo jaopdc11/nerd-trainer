@@ -110,19 +110,30 @@ describe('a correção', () => {
   })
 
   /**
-   * O ponto do jogo. Dizer "dólar" para o Equador ou "franco" para o Senegal é
-   * dizer só a família, e nesses dois casos a família é a parte óbvia: o que a
-   * carta cobra é saber que o dólar é o **americano** e que o franco é o **CFA**.
+   * A regra vale aqui também, e é a mudança que mais se sente jogando: eram 34
+   * das 195 cartas em que saber a resposta não bastava, porque faltava o
+   * qualificador. Quem quiser o nome inteiro tem o gabarito, que vem de graça
+   * depois de toda carta e ainda diz o tamanho do bloco.
    */
-  it('a forma curta não vale na moeda emprestada nem na compartilhada', () => {
-    expect(responder('ec', 'dólar')).toBe('errado')
+  it('a forma curta vale também na moeda emprestada e na compartilhada', () => {
+    expect(responder('ec', 'dólar')).toBe('certo')
     expect(responder('ec', 'dólar americano')).toBe('certo')
-    expect(responder('sn', 'franco')).toBe('errado')
+    expect(responder('sn', 'franco')).toBe('certo')
     expect(responder('sn', 'franco CFA')).toBe('certo')
-    expect(responder('gd', 'dólar')).toBe('errado')
+    expect(responder('gd', 'dólar')).toBe('certo')
     expect(responder('gd', 'dólar do Caribe Oriental')).toBe('certo')
-    expect(responder('li', 'franco')).toBe('errado')
+    expect(responder('li', 'franco')).toBe('certo')
     expect(responder('li', 'franco suíço')).toBe('certo')
+  })
+
+  /**
+   * O que a regra **não** afrouxou: família é dedução, moeda de outro bloco não
+   * é. "franco CFA" no Djibuti continua errado — lá o franco é o djibutiano.
+   */
+  it('a família vale, o bloco errado não', () => {
+    expect(responder('dj', 'franco')).toBe('certo')
+    expect(responder('dj', 'franco CFA')).toBe('errado')
+    expect(responder('ec', 'dólar do Caribe Oriental')).toBe('errado')
   })
 
   it('aceita o nome colado e perdoa o dedo escorregado nos nomes longos', () => {

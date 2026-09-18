@@ -142,6 +142,6 @@ export const ELEMENTOS: readonly Elemento[] = [
   { z: 114, simbolo: 'Fl', nome: 'Fleróvio', sinonimos: [], grupo: 14, periodo: 7, bloco: 'p', linha: 7, coluna: 14 },
   { z: 115, simbolo: 'Mc', nome: 'Moscóvio', sinonimos: [], grupo: 15, periodo: 7, bloco: 'p', linha: 7, coluna: 15 },
   { z: 116, simbolo: 'Lv', nome: 'Livermório', sinonimos: [], grupo: 16, periodo: 7, bloco: 'p', linha: 7, coluna: 16 },
-  { z: 117, simbolo: 'Ts', nome: 'Tenessino', sinonimos: [], grupo: 17, periodo: 7, bloco: 'p', linha: 7, coluna: 17 },
+  { z: 117, simbolo: 'Ts', nome: 'Tenesso', sinonimos: [], grupo: 17, periodo: 7, bloco: 'p', linha: 7, coluna: 17 },
   { z: 118, simbolo: 'Og', nome: 'Oganessônio', sinonimos: [], grupo: 18, periodo: 7, bloco: 'p', linha: 7, coluna: 18 },
 ]

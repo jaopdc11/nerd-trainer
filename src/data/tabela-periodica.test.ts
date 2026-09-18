@@ -65,7 +65,7 @@ describe('português do Brasil', () => {
       86: 'Radônio', // não Rádon
       113: 'Nihônio',
       115: 'Moscóvio',
-      117: 'Tenessino',
+      117: 'Tenesso',
       118: 'Oganessônio',
     }
     for (const [z, nome] of Object.entries(esperado)) {

@@ -161,19 +161,21 @@ describe('as moedas compartilhadas', () => {
 })
 
 /**
- * A regra da forma curta, decisão 3 do cabeçalho.
+ * A regra da forma curta, decisão 3 do cabeçalho — e ela não tem exceção.
  *
- * Em moeda própria a família basta: o país está escrito na carta, então "dólar"
- * para o Canadá não esconde nada. Em moeda emprestada ou compartilhada é o
- * contrário — o qualificador é exatamente o fato que a carta cobra, e aceitar
- * "franco" para o Senegal daria de graça o que o jogo quer perguntar.
+ * O país está escrito na carta, então o qualificador que falta é dedução: quem
+ * sabe que o Senegal usa franco sabe qual franco é, porque não existe outro
+ * candidato. Isto já valeu só para a moeda própria, com o argumento de que
+ * "franco" no Senegal esconde o CFA; o que o argumento produzia era o jogador que
+ * sabe a resposta apanhando da digitação em 34 das 195 cartas. Quem cobra o fato
+ * é o gabarito, que devolve o nome inteiro e o tamanho do bloco.
  */
 describe('a forma curta', () => {
   const FAMILIAS = ['dólar', 'franco', 'peso', 'coroa', 'rupia', 'dinar', 'rial', 'libra', 'xelim', 'lira']
+  const aceita = (chave: string, forma: string) =>
+    formasAceitas(MOEDAS[chave] as Moeda).includes(forma)
 
   it('vale nas moedas próprias', () => {
-    const aceita = (chave: string, forma: string) =>
-      formasAceitas(MOEDAS[chave] as Moeda).includes(forma)
     expect(aceita('cad', 'dólar')).toBe(true)
     expect(aceita('sek', 'coroa')).toBe(true)
     expect(aceita('clp', 'peso')).toBe(true)
@@ -181,19 +183,29 @@ describe('a forma curta', () => {
     expect(aceita('kes', 'xelim')).toBe(true)
   })
 
-  it('não vale nas compartilhadas nem nas emprestadas', () => {
+  it('vale também nas compartilhadas e nas emprestadas — as seis que resistiam', () => {
     const compartilhadas = Object.keys(MOEDAS).filter((c) => paisesDaMoeda(c).length > 1)
-    // Só o euro e o shekel sobram: "euro" e "shekel" não são nome de família.
+    // Euro e shekel não entram na conta: não são nome de família, são a resposta.
     expect(compartilhadas.sort()).toEqual(['aud', 'chf', 'eur', 'ils', 'usd', 'xaf', 'xcd', 'xof'])
 
-    for (const chave of compartilhadas) {
-      const aceitas = formasAceitas(MOEDAS[chave] as Moeda)
-      for (const familia of FAMILIAS) {
-        expect(
-          aceitas.includes(familia),
-          `${chave} aceita "${familia}" sozinho e com isso entrega o fato`,
-        ).toBe(false)
-      }
+    expect(aceita('usd', 'dólar')).toBe(true)
+    expect(aceita('xcd', 'dólar')).toBe(true)
+    expect(aceita('aud', 'dólar')).toBe(true)
+    expect(aceita('xof', 'franco')).toBe(true)
+    expect(aceita('xaf', 'franco')).toBe(true)
+    expect(aceita('chf', 'franco')).toBe(true)
+  })
+
+  /**
+   * O invariante, e é ele que impede a regra de voltar a ter exceção sem ninguém
+   * decidir nada: canônica que começa com nome de família aceita a família
+   * sozinha, sem olhar se a moeda é própria, emprestada ou de bloco.
+   */
+  it('nenhuma moeda de família fica sem a forma curta', () => {
+    for (const [chave, m] of Object.entries(MOEDAS)) {
+      const primeira = m.nome.split(' ')[0] as string
+      if (!m.nome.includes(' ') || !FAMILIAS.includes(primeira)) continue
+      expect(aceita(chave, primeira), `${chave} não aceita "${primeira}" sozinho`).toBe(true)
     }
   })
 })
@@ -242,7 +254,7 @@ describe('os casos que não são fato limpo', () => {
 /**
  * A mesma medição de `capitais.test.ts`, com uma diferença que vem do desenho:
  * aqui muitas cartas compartilham a resposta *literal* ("dólar" é forma aceita de
- * quinze moedas), e isso não é ambiguidade nenhuma — o validador casa a forma
+ * dezenove moedas, "franco" de nove), e isso não é ambiguidade nenhuma — o validador casa a forma
  * exata antes de chegar na tolerância a typo, então texto idêntico sempre pontua.
  * O que interessa medir é o par *parecido mas diferente*, que é o que a tolerância
  * poderia confundir.
