@@ -97,14 +97,18 @@ export function Etiqueta({
   children,
   className = '',
   style,
+  title,
 }: {
   children: ReactNode
   className?: string
   style?: React.CSSProperties
+  /** Detalhe que não cabe na etiqueta — o recorde por trás do número, por exemplo. */
+  title?: string
 }) {
   return (
     <span
       style={style}
+      title={title}
       className={`rounded-md border border-borda px-2 py-0.5 font-mono text-[0.7rem] tracking-wide uppercase ${className}`}
     >
       {children}

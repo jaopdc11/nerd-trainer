@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { calcular } from '@/core/nerdometro'
+import { calcular, FAIXAS, NOTA_MAXIMA } from '@/core/nerdometro'
 import { VERSAO_ATUAL } from '@/core/storage'
 import type { Banco, Entrada } from '@/core/storage'
 import { Nerdometro } from './Nerdometro'
@@ -22,8 +22,13 @@ afterEach(cleanup)
 const EM_EXPERIENCIA = ['ordem-de-grandeza', 'formulas']
 const NA_NOTA = 'alfabeto-grego'
 
+/**
+ * A data é relativa a agora: com a ferrugem na fórmula, uma data fixa escrita
+ * aqui envelhece sozinha e um dia estes testes passariam a medir tempo parado
+ * sem querer. Dois dias atrás é "jogado ontem" para qualquer efeito.
+ */
 function entrada(pontuacao: number, partidas: number): Entrada {
-  const emISO = '2026-09-01T10:00:00.000Z'
+  const emISO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
   return {
     recorde: { pontuacao, duracaoMs: 60_000, erros: 0, completou: false, emISO },
     partidas,
@@ -46,6 +51,93 @@ const BANCO: Banco = {
 
 const nomeDe = (jogoId: string) =>
   calcular(BANCO).linhas.find((l) => l.jogoId === jogoId)?.nome as string
+
+/**
+ * A trilha é o ranking inteiro em dois centímetros, e o que se protege dela é a
+ * contagem: são vinte e um elos, e uma trilha que desenhe vinte ou vinte e dois
+ * pontos não quebra nada — só mente sobre o tamanho da escada, calada.
+ */
+describe('o ranking', () => {
+  it('diz em que elo você está, e o quanto isso é da escada', () => {
+    const m = calcular(BANCO)
+    render(<Nerdometro banco={BANCO} />)
+
+    // O título grande e o lema, que é o que a pessoa lê primeiro.
+    expect(screen.getByText(m.faixa.titulo)).toBeDefined()
+    expect(screen.getByText(m.faixa.lema)).toBeDefined()
+    // E a posição na escada, por extenso: "Nerd I" sozinho não diz se são cinco
+    // elos ou cinquenta.
+    expect(
+      screen.getByText(new RegExp(`elo ${m.faixa.indice + 1} de ${FAIXAS.length}`)),
+    ).toBeDefined()
+  })
+
+  it('desenha a escada inteira: um ponto por elo, marcando os conquistados', () => {
+    render(<Nerdometro banco={BANCO} />)
+
+    const pontos = within(screen.getByRole('list', { name: 'Ranking' })).getAllByTitle(/·/)
+    expect(pontos).toHaveLength(FAIXAS.length)
+    // Cada ponto carrega o nome do elo e o que ele custa — é assim que dá para
+    // ver para onde o ranking vai sem ter chegado lá.
+    expect(pontos.map((p) => p.getAttribute('title'))).toEqual(
+      FAIXAS.map((f) => `${f.titulo} · ${f.minimo} pontos`),
+    )
+  })
+
+  it('o medidor anuncia o elo, não só o número', () => {
+    const m = calcular(BANCO)
+    render(<Nerdometro banco={BANCO} />)
+
+    // O arco virou progresso dentro do elo, então o rótulo acessível tem de
+    // trazer as duas coisas: onde você está na escada e a nota de onde ela sai.
+    const medidor = screen.getByRole('img', { name: new RegExp(m.faixa.titulo) })
+    expect(medidor.getAttribute('aria-label')).toContain(`nota ${m.nota} de ${NOTA_MAXIMA}`)
+  })
+})
+
+/**
+ * A ofensiva na tela. O que importa aqui é a cobrança: uma sequência viva mas
+ * sem partida hoje morre à meia-noite, e o único momento em que dizer isso
+ * adianta alguma coisa é enquanto ainda dá tempo.
+ */
+describe('a etiqueta da ofensiva', () => {
+  const DIA = 24 * 60 * 60 * 1000
+
+  /** Um banco com partidas nos dias dados, contados para trás a partir de hoje. */
+  const comDias = (...diasAtras: number[]): Banco => ({
+    versao: VERSAO_ATUAL,
+    entradas: {
+      [NA_NOTA]: {
+        ...entrada(10, 4),
+        historico: diasAtras.map((d, i) => ({
+          pontuacao: 10,
+          duracaoMs: 1000,
+          erros: 1,
+          emISO: new Date(new Date().setHours(12, 0, 0, 0) - d * DIA).toISOString(),
+          runId: `r${d}-${i}`,
+        })),
+      },
+    },
+  })
+
+  it('mostra os dias seguidos quando já jogou hoje', () => {
+    render(<Nerdometro banco={comDias(0, 1, 2)} />)
+    const etiqueta = screen.getByText(/3 dias/)
+    expect(etiqueta.textContent).not.toContain('jogue hoje')
+  })
+
+  it('jogou ontem e ainda não hoje: a etiqueta cobra', () => {
+    render(<Nerdometro banco={comDias(1, 2)} />)
+    expect(screen.getByText(/2 dias/).textContent).toContain('jogue hoje')
+  })
+
+  it('sem sequência, não há etiqueta nenhuma', () => {
+    // Zero dias não vira "🔥 0": um contador de hábito zerado só ocupa espaço e
+    // cobra de quem acabou de chegar.
+    render(<Nerdometro banco={comDias(5, 6)} />)
+    expect(screen.queryByText(/dias?$/)).toBeNull()
+  })
+})
 
 describe('a etiqueta "em experiência"', () => {
   it('conta os mesmos jogos que a regra pôs em experiência', () => {

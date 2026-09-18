@@ -1,5 +1,5 @@
 import { JOGOS } from './registry'
-import type { Banco } from './storage'
+import type { Banco, Entrada } from './storage'
 import { CATEGORIAS } from './types'
 import type { Categoria } from './types'
 
@@ -329,14 +329,27 @@ export interface LinhaNerdometro {
   readonly categoria: Categoria | null
   readonly recorde: number
   readonly meta: number
-  /** 0 a 1. */
+  /**
+   * O placar que conta na nota: o melhor das `PARTIDAS_NA_JANELA` últimas
+   * partidas. Não é o `recorde`, que é histórico e nunca desce.
+   */
+  readonly vigente: number
+  /** 0 a 1, do `vigente` contra a meta. Ainda **sem** a ferrugem. */
   readonly fracao: number
+  /** 0,7 a 1 — ver `ferrugemEm`. O que multiplica a fração na nota. */
+  readonly ferrugem: number
+  /** Dias desde a última partida. 0 em jogo nunca jogado. */
+  readonly diasParado: number
   readonly peso: number
   /** Quanto a nota final sobe se este jogo for ao máximo. */
   readonly potencial: number
   readonly partidas: number
+  /** Bateu a meta sem errar nada, dentro da janela — ver `BONUS_DE_LIMPEZA`. */
+  readonly limpa: boolean
   /** Chegou na meta. */
   readonly dominado: boolean
+  /** Passou dela: a fração está acima de 1 e o jogo rende mais que o cheio. */
+  readonly superado: boolean
   /**
    * Já pesa na nota. `false` também em jogo jogado uma vez só e ainda longe da
    * meta — ver `PARTIDAS_PARA_ENTRAR`. A tela precisa disto para não deixar o
@@ -368,39 +381,191 @@ export interface NotaCategoria {
   readonly jogos: number
 }
 
-export interface Faixa {
-  readonly minimo: number
-  readonly titulo: string
-  readonly lema: string
+/**
+ * O ranking: cinco patentes, vinte e um elos.
+ *
+ * Substituiu nove títulos soltos — "Nerd de carteirinha", "Enciclopédia
+ * ambulante", "Perigo em jantar de família" —, e o que a troca conserta é real:
+ * nove piadas em fila não formam escada. Cada título era uma leitura isolada da
+ * nota, então ele não dizia *onde* a pessoa está: dava para ver "Perigo em
+ * jantar de família" sem saber se aquilo era metade do caminho ou o fim dele. Um
+ * ranking de patente + grau dá duas leituras ao mesmo número — a patente diz
+ * quem você é, o grau diz quanto falta para a próxima — e é o que permite à tela
+ * mostrar a escada inteira, com a sua posição dentro dela.
+ *
+ * As três decisões:
+ *
+ * 1. **O elo é função da nota, e desce junto com ela.** Não há marca d'água:
+ *    quem cai de 63 para 62 volta de `Virgem I` para `Nerd V`. Travar no maior
+ *    elo já atingido foi considerado e descartado por duas razões — exigiria
+ *    guardar mais um estado no banco, e faria a patente mentir sobre o presente,
+ *    que é justamente o que ela existe para resumir. A regressão, aliás, é rara
+ *    de propósito: recorde nunca cai, e o único jeito de a nota baixar é um jogo
+ *    novo entrar fraco no denominador, coisa de que a carência de estreia já
+ *    cuida (ver `PARTIDAS_PARA_ENTRAR`).
+ * 2. **Apertado embaixo, caro em cima.** Os elos de `Curioso` custam 3 pontos de
+ *    nota cada; os de `Virgem`, 6 e 7. Não é decoração, e o efeito é maior do
+ *    que a largura em pontos deixa ver: a nota já passa pela curva de retorno
+ *    decrescente (ver `CURVA`), então medido em fração das metas — o
+ *    conhecimento de verdade — o primeiro elo custa meio ponto percentual e o
+ *    último custa dez, vinte vezes mais. Quem abre o app sobe alguns elos na
+ *    primeira sessão; quem está em `Virgem V` está a 82% das metas do que jogou.
+ * 3. **Os mínimos são da nota, não da fração.** Um elo nunca se compara com
+ *    "quantos % do baralho eu sei": ele se compara com a nota, que já pondera
+ *    peso e passa pela curva. Em fração média das metas jogadas, os vinte e um
+ *    caem em 0 · 0,5 · 1 · 3 · 4 · 6 · 8 · 11 · 14 · 17 · 22 · 26 · 31 · 37 ·
+ *    42 · 49 · 57 · 64 · 74 · 82 · 92 por cento — nenhum par de vizinhos empata,
+ *    ou seja, a escada discrimina do começo ao fim mesmo com vinte e um degraus.
+ *
+ * Vinte e um, e não os treze da sugestão original, é decisão do dono do app:
+ * mais elos, mais vezes que a tela tem uma conquista para anunciar. O teto
+ * prático é a resolução da própria nota — ela é inteira, e elo de 2 pontos
+ * subiria sozinho no arredondamento de qualquer partida mediana.
+ */
+export interface Patente {
+  readonly nome: string
+  /** Nome curto, para a trilha na tela. */
+  readonly curto: string
+  /** Os graus, de baixo para cima. Um só quando a patente não tem graus. */
+  readonly graus: readonly { readonly minimo: number; readonly lema: string }[]
 }
 
-export const FAIXAS: readonly Faixa[] = [
-  { minimo: 95, titulo: 'Tem fórmula tatuada', lema: 'cara, vai arrumar uma namorada' },
+export const PATENTES: readonly Patente[] = [
   {
-    minimo: 85,
-    titulo: 'Perigo em jantar de família',
-    lema: 'no churrasco ninguém mais senta do seu lado',
+    nome: 'Curioso',
+    curto: 'Curioso',
+    graus: [
+      { minimo: 0, lema: 'zero. abriu isso aqui pra quê?' },
+      { minimo: 3, lema: 'entrou, se assustou e ficou olhando' },
+      { minimo: 6, lema: 'jogou duas partidas e já se acha' },
+      { minimo: 9, lema: 'tá começando a gostar, e isso é preocupante' },
+      { minimo: 12, lema: 'fraco. nem nerd direito você é ainda' },
+    ],
   },
   {
-    minimo: 70,
-    titulo: 'Enciclopédia ambulante',
-    lema: 'seu último date foi explicando a tabela periódica',
+    nome: 'CDF',
+    curto: 'CDF',
+    graus: [
+      { minimo: 16, lema: 'ainda dá pra fingir que é normal, aproveita' },
+      { minimo: 20, lema: 'sentava na primeira fileira e todo mundo lembra' },
+      { minimo: 24, lema: 'faz resumo colorido e empresta pros outros' },
+      { minimo: 28, lema: 'lembra o professor do dever de casa' },
+      { minimo: 32, lema: 'já corrige o professor, mas baixinho' },
+    ],
   },
   {
-    minimo: 55,
-    titulo: 'Nerd de carteirinha',
-    lema: 'seus amigos já mudam de assunto quando você começa a falar',
+    nome: 'Nerd',
+    curto: 'Nerd',
+    graus: [
+      { minimo: 37, lema: 'assumiu de vez, agora não tem volta' },
+      { minimo: 42, lema: 'leu a Wikipédia inteira de um assunto só' },
+      { minimo: 47, lema: 'seus amigos já mudam de assunto quando você começa a falar' },
+      { minimo: 52, lema: 'carteirinha plastificada e cordão no pescoço' },
+      { minimo: 57, lema: 'discute nomenclatura em mesa de bar' },
+    ],
   },
-  { minimo: 40, titulo: 'Nerd assumido', lema: 'assumiu de vez, agora não tem volta' },
   {
-    minimo: 25,
-    titulo: 'Estudante aplicado',
-    lema: 'ainda dá pra fingir que é normal, aproveita',
+    nome: 'Virgem',
+    curto: 'Virgem',
+    graus: [
+      { minimo: 63, lema: 'seu último date foi explicando a tabela periódica' },
+      { minimo: 69, lema: 'no churrasco ninguém mais senta do seu lado' },
+      { minimo: 75, lema: 'sua mãe já parou de perguntar se você conheceu alguém' },
+      { minimo: 82, lema: 'sua família já desistiu de te apresentar pra alguém' },
+      { minimo: 88, lema: 'você corrigiu alguém no velório' },
+    ],
   },
-  { minimo: 10, titulo: 'Curioso', lema: 'fraco. nem nerd direito você é' },
-  { minimo: 1, titulo: 'Só passando', lema: 'entrou, se assustou e fugiu' },
-  { minimo: 0, titulo: 'Ainda não começou', lema: 'zero. abriu isso aqui pra quê?' },
+  {
+    nome: 'Ultra Virgem',
+    curto: 'Ultra',
+    graus: [{ minimo: 95, lema: 'cara, vai arrumar uma namorada' }],
+  },
 ]
+
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V'] as const
+
+export interface Faixa {
+  readonly minimo: number
+  readonly patente: string
+  /** O nome curto da patente, para onde não cabe o longo. */
+  readonly curto: string
+  /** 1 a 5, ou `null` na patente de elo único. */
+  readonly grau: number | null
+  /**
+   * O grau em romano, `null` junto com ele.
+   *
+   * Vem daqui e não da tela porque a tabela de romanos é uma só: com uma cópia
+   * no componente, esticar o ranking de três para cinco graus deixaria a tela
+   * escrevendo `undefined` no quarto elo de cada patente.
+   */
+  readonly romano: string | null
+  /** Patente e grau juntos: `Nerd II`. É o nome que a tela diz. */
+  readonly titulo: string
+  readonly lema: string
+  /** A posição na escada, de 0 ao topo. */
+  readonly indice: number
+}
+
+/**
+ * Os vinte e um elos em ordem de subida — e em ordem de subida de propósito: a
+ * tela desenha a escada nesta ordem, e uma lista invertida obrigaria todo leitor
+ * (e todo teste) a lembrar disso. Quem precisa achar o degrau de uma nota usa
+ * `degrauDe`.
+ *
+ * Derivada de `PATENTES`, e não escrita à mão, porque o título é a única coisa
+ * aqui que dá para escrever errado sem quebrar nada: um `Nerd IIII` ou um grau
+ * repetido passaria pela revisão e só apareceria na tela de alguém.
+ */
+export const FAIXAS: readonly Faixa[] = PATENTES.flatMap((p) =>
+  p.graus.map((g, i): Faixa => {
+    const grau = p.graus.length > 1 ? i + 1 : null
+    const romano = grau === null ? null : (ROMANOS[i] as string)
+    return {
+      minimo: g.minimo,
+      patente: p.nome,
+      curto: p.curto,
+      grau,
+      romano,
+      titulo: romano === null ? p.nome : `${p.nome} ${romano}`,
+      lema: g.lema,
+      indice: 0,
+    }
+  }),
+).map((f, indice) => ({ ...f, indice }))
+
+/**
+ * De onde para cima o certificado existe.
+ *
+ * `Nerd V` e não `Curioso I` porque um diploma que todo mundo tem no primeiro
+ * dia não é diploma — o valor dele é ser a prova de uma coisa difícil. É o
+ * décimo quinto dos vinte e um elos, e pede nota 57: em fração das metas
+ * jogadas, 42% do que você abriu, o que no catálogo inteiro é bastante coisa.
+ *
+ * Fica aqui, e é procurado pelo título, porque a régua do certificado é a mesma
+ * régua do ranking. Com o número 57 copiado no componente, reequilibrar a tabela
+ * de `PATENTES` mudaria o elo e não mudaria o diploma, e ninguém perceberia.
+ */
+export const ELO_DO_CERTIFICADO = 'Nerd V'
+
+/**
+ * Onde `ELO_DO_CERTIFICADO` cai na escada.
+ *
+ * Explode se o título não existir, e é de propósito: um certificado que nunca
+ * libera, porque alguém renomeou `Nerd V`, é um defeito que não dá sintoma
+ * nenhum — a tela simplesmente nunca mostraria o botão, para sempre.
+ */
+function indiceDoCertificado(): number {
+  const elo = FAIXAS.find((f) => f.titulo === ELO_DO_CERTIFICADO)
+  if (!elo) throw new Error(`ELO_DO_CERTIFICADO "${ELO_DO_CERTIFICADO}" não existe em FAIXAS`)
+  return elo.indice
+}
+
+/** O índice em `FAIXAS` do degrau em que a nota cai. Nunca falha: 0 é o piso. */
+export function degrauDe(nota: number): number {
+  let i = 0
+  while (i + 1 < FAIXAS.length && nota >= (FAIXAS[i + 1] as Faixa).minimo) i++
+  return i
+}
 
 /** Um jogo, e a pontuação a fazer nele. Ver `montarComoSubir`. */
 export interface PassoParaSubir {
@@ -420,6 +585,16 @@ export interface Nerdometro {
   readonly faixa: Faixa
   /** A próxima faixa, e quantos pontos faltam. `null` no topo. */
   readonly proximaFaixa: { readonly faixa: Faixa; readonly falta: number } | null
+  /**
+   * 0 a 100 **dentro do degrau atual** — o arco do medidor passou a mostrar
+   * isto, e não a nota crua.
+   *
+   * O motivo é que a nota crua desenhava um arco que quase não se mexia: subir
+   * de `Nerd II` para `Nerd III` são 8 pontos em 100, ou seja, 8% de arco por
+   * degrau conquistado. Em progresso de degrau, a mesma conquista preenche a
+   * volta inteira. 100 no topo, onde não há próximo degrau a preencher.
+   */
+  readonly progressoNoDegrau: number
   /**
    * O que fazer para subir de faixa, em até 3 jogos. Vazio no topo.
    *
@@ -451,6 +626,21 @@ export interface Nerdometro {
    * nada sem os nomes. A tela mostra a contagem e abre a lista.
    */
   readonly emExperiencia: readonly LinhaNerdometro[]
+  /**
+   * Os jogos que já estão enferrujando, do que mais custa nota para o que menos.
+   *
+   * A lista, e não só a contagem, pela mesma razão de `emExperiencia`: uma nota
+   * que cai sozinha e um mostrador que não diz de onde é bug, do ponto de vista
+   * de quem olha. Aqui a resposta é a própria lista de tarefas — estes são os
+   * jogos a revisitar, e nesta ordem.
+   */
+  readonly enferrujados: readonly LinhaNerdometro[]
+  /** Quantos pontos de nota a ferrugem está tirando agora. */
+  readonly custoDaFerrugem: number
+  /** Chegou em `ELO_DO_CERTIFICADO` — ver lá por que o diploma começa tão em cima. */
+  readonly podeCertificar: boolean
+  /** Dias seguidos jogando — ver `ofensiva`. */
+  readonly ofensiva: Ofensiva
   readonly total: number
   readonly dominados: number
   readonly partidas: number
@@ -484,18 +674,17 @@ export interface Nerdometro {
  *
  * Reconferido com 69 critérios: o expoente age dentro de cada jogo, antes da
  * ponderação, então o tamanho do catálogo não o afeta — o que muda com o
- * catálogo é o denominador, e disso cuida a decisão 3. O que a curva faz com as
- * faixas continua o prometido: `Tem fórmula tatuada` (95) pede 92% de média das
- * metas jogadas, `Perigo em jantar de família` (85) pede 78%, `Enciclopédia
- * ambulante` (70) pede 58% e `Nerd de carteirinha` (55) pede 40%. De `Estudante
- * aplicado` para cima as faixas vizinhas ficam de 12 a 20 pontos de fração umas
- * das outras — ou seja, ainda discriminam. As duas últimas (`Curioso` e `Só
- * passando`) são estreitas de propósito: as duas descrevem quem não pontuou
- * quase nada, e ali a diferença é entre nada e quase nada mesmo.
+ * catálogo é o denominador, e disso cuida a decisão 3. O que a curva faz com o
+ * ranking continua o prometido: `Ultra Virgem` (95) pede 92% de média das metas
+ * jogadas, `Virgem V` (88) pede 82%, `Virgem I` (63) pede 49% e `Nerd I` (37)
+ * pede 22%. É a curva que faz os elos de cima custarem caro sem que a tabela de
+ * `PATENTES` precise abrir os degraus: lá em cima cada 6 pontos de nota são 8 de
+ * fração; embaixo, cada 3 pontos são meio ponto de fração.
  */
 export const CURVA = 0.65
 
 const comCurva = (fracao: number) => fracao ** CURVA
+
 
 /**
  * A estreia não conta — a menos que ela já tenha batido a meta.
@@ -523,8 +712,122 @@ const comCurva = (fracao: number) => fracao ** CURVA
  */
 export const PARTIDAS_PARA_ENTRAR = 2
 
-function entraNaNota(l: { recorde: number; partidas: number; fracao: number }): boolean {
-  if (l.recorde <= 0) return false
+/**
+ * A nota deixou de ser catraca: o que conta é o que você faz agora, e o que
+ * você não joga enferruja.
+ *
+ * O defeito que isto conserta é de nascença e o ranking o deixou gritante: a
+ * nota era `recorde / meta`, e recorde não desce. Quem fez 118 na tabela
+ * periódica numa tarde de 2025 continuava valendo 118 para sempre, tivesse
+ * esquecido tudo ou não. Uma escada de vinte e um elos onde ninguém nunca desce
+ * um degrau não é ranking, é um registro de visitas.
+ *
+ * São duas peças, e elas cobrem buracos diferentes:
+ *
+ * 1. **A janela** (`PARTIDAS_NA_JANELA`). A fração vem do melhor das cinco
+ *    últimas partidas daquele jogo, não do recorde histórico. É o que faz jogar
+ *    mal custar: cinco sessões fracas apagam um recorde antigo. Cinco, e não
+ *    três, porque três transformam uma noite ruim em queda de elo — e a nota
+ *    mediria humor, não repertório.
+ *
+ *    O recorde histórico continua existindo e continua na tela de recordes: ele
+ *    é a sua marca, e apagá-la seria mentir sobre o que você já fez. Ele só
+ *    parou de ser a régua da nota.
+ * 2. **A ferrugem** (`ferrugemEm`). O que você não joga perde valor com o tempo,
+ *    até um piso. É o que faz sumir custar.
+ *
+ * As duas juntas fecham o buraco que cada uma deixa sozinha: só com a janela,
+ * quem para de jogar congela a nota no último placar bom; só com a ferrugem,
+ * abrir cada jogo uma vez por semana e fechar segura o ranking inteiro sem
+ * acertar nada — a janela impede isso porque cinco visitas dessas viram as cinco
+ * últimas partidas, e o placar vigente desaba junto.
+ */
+
+/** Quantas partidas recentes formam o placar vigente. */
+export const PARTIDAS_NA_JANELA = 5
+
+/**
+ * O teto de cada jogo deixou de ser a meta — e é isto que faz a nota passar de
+ * 100.
+ *
+ * A escala travada em 100 tinha o defeito de todo teto: quem chega nele para de
+ * ter o que fazer. Pior, ela igualava coisas diferentes — quem faz exatamente a
+ * meta de π (100 casas) e quem recita 400 casas tinham o mesmo 100%, e o app
+ * dizia aos dois que estavam no máximo. Agora a meta é onde o jogo **começa** a
+ * valer cheio, não onde ele acaba, e há 30% de sobra para quem vai além.
+ *
+ * O excedente tem duas portas, e existem duas porque uma sozinha seria injusta:
+ *
+ * - **Superar a meta.** Vale onde o baralho é maior que ela: π pede 100 casas de
+ *   dez mil, idiomas pede 150 de 195, aritmética é cronometrada e não tem fim.
+ * - **Partida limpa** (`BONUS_DE_LIMPEZA`). Vale em todo lugar, e é a porta de
+ *   quem joga os fechados: na tabela periódica a meta *é* o baralho inteiro
+ *   (118 de 118), então sem isto o jogo mais pesado do catálogo seria
+ *   justamente o que não teria para onde crescer. Bater a meta sem errar uma
+ *   carta é um feito diferente de bater a meta, e agora paga diferente.
+ *
+ * O teto de 1,3 existe para π não virar o app inteiro: sem ele, dez mil casas
+ * dariam fração 100 num jogo só, e a nota deixaria de ser sobre repertório
+ * amplo para ser sobre quem moeu o maior dataset. Com ele, a nota máxima é
+ * `NOTA_MAXIMA` — perto de 119, não infinito. "Sem teto" aqui quer dizer que o
+ * número não para em 100, não que ele não para nunca.
+ */
+export const TETO_DO_JOGO = 1.3
+
+/** O que vale bater a meta sem errar nenhuma carta. */
+export const BONUS_DE_LIMPEZA = 0.15
+
+/**
+ * A nota de quem levasse **todos** os jogos jogados ao teto: `100 × 1,3^γ`, ou
+ * seja, perto de 119.
+ *
+ * Calculada e não digitada, porque ela aparece na tela — é o que o arco do topo
+ * preenche — e mexer no teto ou na curva sem mexer aqui poria o medidor a
+ * prometer uma nota que a fórmula não alcança.
+ */
+export const NOTA_MAXIMA = Math.round(100 * comCurva(TETO_DO_JOGO))
+
+/** Dias sem jogar até a ferrugem começar. */
+export const DIAS_DE_GRACA = 7
+
+/** Dias sem jogar até a ferrugem chegar ao piso. */
+export const DIAS_ATE_O_PISO = 90
+
+/** Quanto sobra da fração de um jogo largado para sempre. */
+export const PISO_DA_FERRUGEM = 0.7
+
+const DIA_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Quanto vale hoje o que você fez há `dias`: 1 na primeira semana, descendo em
+ * linha reta até `PISO_DA_FERRUGEM` aos três meses.
+ *
+ * Os números vêm de uma conta sobre o tamanho do catálogo, não de gosto. Com
+ * setenta e dois jogos, ninguém revisita tudo: quem joga dez jogos por semana
+ * passa em cada um a cada sete semanas, e é esse jogador — o assíduo — que
+ * define onde a nota mora em regime. Com esta curva ele fica perto de 85, e o
+ * topo do ranking passa a exigir varrer o catálogo com frequência, não tê-lo
+ * varrido um dia. Uma semana sumido custa cerca de 1,5 ponto de nota; três meses
+ * sumido, vinte.
+ *
+ * O piso existe para a nota não virar zero por abandono: quem sumiu um ano ainda
+ * sabe a tabela periódica, e uma escala que o manda para `Curioso I` estaria
+ * medindo presença, não repertório. Setenta por cento é o quanto se assume que
+ * sobrevive sem revisão nenhuma.
+ *
+ * A graça de uma semana é a parte que o dono do app escolheu e é a que dá o
+ * ritmo: ela faz o número responder à semana, que é a unidade em que as pessoas
+ * pensam o próprio hábito. Sessenta dias de graça — a proposta original — deixava
+ * a nota parada tempo demais para alguém associar a queda ao sumiço.
+ */
+export function ferrugemEm(dias: number): number {
+  if (dias <= DIAS_DE_GRACA) return 1
+  const andado = (dias - DIAS_DE_GRACA) / (DIAS_ATE_O_PISO - DIAS_DE_GRACA)
+  return Math.max(PISO_DA_FERRUGEM, 1 - (1 - PISO_DA_FERRUGEM) * andado)
+}
+
+function entraNaNota(l: { vigente: number; partidas: number; fracao: number }): boolean {
+  if (l.vigente <= 0) return false
   return l.partidas >= PARTIDAS_PARA_ENTRAR || l.fracao >= 1
 }
 
@@ -542,7 +845,17 @@ function media(
     // a meta cheia ele passaria pela carência de qualquer jeito.
     const cheio = l.jogoId === noMaximo
     if (!cheio && !entraNaNota(l)) continue
-    soma += comCurva(cheio ? 1 : l.fracao) * l.peso
+    // O fingido no máximo também zera a ferrugem: a partida que o leva à meta é
+    // de hoje, e cobrar dele o tempo parado seria simular um jogo que ninguém
+    // jogou.
+    //
+    // "No máximo" é **a meta**, não `TETO_DO_JOGO`: é o que as recomendações
+    // pedem, e prometer o rendimento do teto num conselho que manda só bater a
+    // meta seria mentira. O `max` com o valor atual existe para quem já passou
+    // da meta — sem ele, simular a meta num jogo que está em 115% *baixaria* a
+    // nota e o potencial daquele jogo sairia negativo.
+    const efetivo = l.fracao * l.ferrugem
+    soma += comCurva(cheio ? Math.max(1, efetivo) : efetivo) * l.peso
     peso += l.peso
   }
 
@@ -570,9 +883,13 @@ function mediaCom(
     // Quem está sendo simulado entra sempre: a pontuação pedida é sempre maior
     // que o recorde, então ela custa uma partida nova e cumpre a carência.
     if (l.jogoId !== jogoId && !entraNaNota(l)) continue
-    const p = l.jogoId === jogoId ? pontuacao : l.recorde
+    const simulado = l.jogoId === jogoId
+    const p = simulado ? pontuacao : l.vigente
     if (p <= 0) continue
-    soma += comCurva(Math.min(1, p / l.meta)) * l.peso
+    // Mesma regra do `noMaximo` de `media`: a pontuação pedida é sempre maior
+    // que o placar vigente, então ela vem de uma partida de hoje — que entra na
+    // janela das últimas cinco e zera a ferrugem daquele jogo.
+    soma += comCurva(Math.min(1, p / l.meta) * (simulado ? 1 : l.ferrugem)) * l.peso
     peso += l.peso
   }
 
@@ -598,7 +915,7 @@ function alvoParaFaixa(
   linha: LinhaNerdometro,
   minimo: number,
 ): number | null {
-  let baixo = Math.max(1, linha.recorde + 1)
+  let baixo = Math.max(1, linha.vigente + 1)
   let alto = linha.meta
 
   if (baixo > alto) return null
@@ -627,8 +944,8 @@ function alvoParaFaixa(
  *   gosto deste". Entra em `log2`, porque a diferença entre 2 e 8 partidas diz
  *   muito e entre 40 e 60 não diz nada; sem a compressão, o jogo viciado
  *   esmagaria todo o resto da lista.
- * - **salto** — quanto falta do recorde até o alvo, medido em frações da meta
- *   do próprio jogo. Em pontos crus não dá para comparar: 10 pontos em π (meta
+ * - **salto** — quanto falta do placar vigente até o alvo, medido em frações da
+ *   meta do próprio jogo. Em pontos crus não dá para comparar: 10 pontos em π (meta
  *   100) e 10 em derivadas (meta 25) são esforços diferentes.
  *
  * `(familiaridade + 0.3) / (0.25 + salto)`. O `+0.3` mantém um jogo nunca
@@ -640,7 +957,10 @@ function alvoParaFaixa(
  */
 function prioridade(linha: LinhaNerdometro, alvo: number): number {
   const familiaridade = Math.log2(1 + linha.partidas)
-  const salto = (alvo - linha.recorde) / linha.meta
+  // Contra o placar vigente, e não contra o recorde histórico: o esforço que a
+  // recomendação cobra é o de hoje. Quem fez 118 há um ano e anda fazendo 70
+  // tem um salto de 48, não de zero.
+  const salto = (alvo - linha.vigente) / linha.meta
   return (familiaridade + 0.3) / (0.25 + salto)
 }
 
@@ -650,7 +970,7 @@ function passo(linha: LinhaNerdometro, alvo: number): PassoParaSubir {
     nome: linha.nome,
     icone: linha.icone,
     alvo,
-    faltam: alvo - linha.recorde,
+    faltam: alvo - linha.vigente,
     partidas: linha.partidas,
   }
 }
@@ -660,10 +980,13 @@ function passo(linha: LinhaNerdometro, alvo: number): PassoParaSubir {
  * de mais de um jogo.
  *
  * A carência é dispensada nos fingidos pela mesma razão que `mediaCom` já a
- * dispensa: o alvo é sempre maior que o recorde, então alcançá-lo custa uma
- * partida, e é ela que matricula o jogo. Fingir sem mexer em `partidas`
+ * dispensa: o alvo é sempre maior que o placar vigente, então alcançá-lo custa
+ * uma partida, e é ela que matricula o jogo. Fingir sem mexer em `partidas`
  * produziria um plano que o próprio medidor não confirmaria depois — o jogo
  * subiria de pontuação e continuaria fora da conta.
+ *
+ * Pela mesma razão o fingido volta sem ferrugem: a partida que cumpre o alvo é
+ * de hoje.
  */
 function comoSe(
   linhas: readonly LinhaNerdometro[],
@@ -675,10 +998,18 @@ function comoSe(
     if (alvo === undefined) return l
     return {
       ...l,
-      recorde: alvo,
+      vigente: alvo,
+      recorde: Math.max(l.recorde, alvo),
       fracao: Math.min(1, alvo / l.meta),
+      ferrugem: 1,
+      diasParado: 0,
       partidas: Math.max(l.partidas, PARTIDAS_PARA_ENTRAR),
+      // A simulação nunca promete o bônus de limpeza: o alvo que a tela mostra é
+      // uma pontuação, e prometer nota com base em "e sem errar nada" seria
+      // cobrar um preço que a linha não diz.
+      limpa: false,
       dominado: alvo >= l.meta,
+      superado: alvo > l.meta,
       naNota: true,
     }
   })
@@ -793,8 +1124,10 @@ function montarComoSubir(
   // Já na faixa mais alta: não há o que recomendar.
   if (minimo === null) return { comoSubir: [], subirPedeMaisDeUmJogo: false }
 
-  // Jogo no máximo não entra: não há pontuação a pedir dele.
-  const candidatos = linhas.filter((l) => l.recorde < l.meta)
+  // Jogo no máximo não entra: não há pontuação a pedir dele. No máximo *hoje* —
+  // quem bateu a meta há um ano e anda longe dela volta a ser candidato, que é
+  // justamente o ponto da janela.
+  const candidatos = linhas.filter((l) => l.vigente < l.meta)
 
   const alcancam = candidatos
     .map((linha) => ({ linha, alvo: alvoParaFaixa(linhas, linha, minimo) }))
@@ -829,12 +1162,155 @@ function montarComoSubir(
   }
 }
 
-export function calcular(banco: Banco): Nerdometro {
+/**
+ * O placar vigente e o tempo parado, lidos do histórico.
+ *
+ * Duas defesas contra banco velho, e as duas importam porque este app guarda
+ * tudo em `localStorage` desde 2025:
+ *
+ * - **Histórico vazio.** O formato antigo não guardava partida nenhuma, e a
+ *   migração aceita isso (ver `validarEntrada`). Sem histórico, o recorde é a
+ *   única evidência que existe — usá-lo é melhor que zerar a nota de quem jogou
+ *   antes do formato novo.
+ * - **Data ilegível ou no futuro.** `Date.parse` devolve `NaN` para lixo, e
+ *   relógio de máquina anda para trás. Os dois viram "jogado agora", que é o
+ *   lado seguro: o erro não pode ser derrubar a nota de alguém.
+ */
+function lerJanela(entrada: Entrada | undefined, agoraMs: number, meta: number) {
+  if (!entrada) return { vigente: 0, diasParado: 0, limpa: false }
+
+  const recentes = entrada.historico.slice(0, PARTIDAS_NA_JANELA)
+  const vigente =
+    recentes.length > 0
+      ? Math.max(...recentes.map((p) => p.pontuacao))
+      : entrada.recorde.pontuacao
+
+  const quando = Date.parse(entrada.ultimaEmISO || entrada.recorde.emISO)
+  const diasParado = Number.isNaN(quando) ? 0 : Math.max(0, (agoraMs - quando) / DIA_MS)
+
+  /**
+   * Limpa é bater a meta **sem errar nenhuma carta**, e as duas condições são
+   * uma coisa só: zero erro num jogo abandonado na terceira pergunta não é
+   * maestria, é uma partida curta. Vale só dentro da janela, como o resto —
+   * senão o bônus seria vitalício e a ferrugem não alcançaria justamente quem
+   * mais deveria revisar.
+   *
+   * Banco antigo sem histórico não ganha o bônus: `completou` existe no recorde,
+   * mas contagem de erros não, e inventar que foi limpa seria dar 15% de graça.
+   */
+  const limpa = recentes.some((p) => p.erros === 0 && p.pontuacao >= meta)
+
+  return { vigente, diasParado, limpa }
+}
+
+export interface Ofensiva {
+  /** Dias seguidos com pelo menos uma partida. */
+  readonly dias: number
+  /** A maior sequência que já houve, para a de hoje ter com o que se comparar. */
+  readonly recorde: number
+  /** Já jogou hoje. Com `false` e `dias > 0`, a sequência vence à meia-noite. */
+  readonly hoje: boolean
+}
+
+/** O dia local de uma data, como `2026-09-18`. */
+function diaLocal(d: Date): string {
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mes}-${dia}`
+}
+
+/**
+ * A ofensiva: dias seguidos jogando.
+ *
+ * **Dia local, não UTC.** Quem joga às 21h em Brasília está no dia seguinte em
+ * UTC, e uma sequência que quebra porque o jogador virou a noite no fuso errado
+ * é o tipo de defeito que ninguém consegue reportar direito.
+ *
+ * **A sequência não morre no instante em que o dia vira.** Se a última partida
+ * foi ontem, a ofensiva continua de pé e o mostrador avisa que ela vence hoje —
+ * `hoje` é `false` e a tela cobra. Zerar à meia-noite em ponto puniria quem
+ * acordou e ainda não jogou, e deixaria o número mentindo metade do dia.
+ *
+ * **Sai do histórico, que tem teto de 500 partidas por jogo** (ver
+ * `LIMITE_HISTORICO`). Para a sequência atual isso é irrelevante — ela vive na
+ * ponta recente —, mas o recorde de dias pode encolher se um jogo muito jogado
+ * empurrar as partidas antigas para fora. Guardar a sequência num contador
+ * próprio no banco resolveria, ao preço de mais um estado que pode divergir do
+ * histórico; medir sempre do histórico nunca mente sobre o que está lá.
+ */
+export function ofensiva(banco: Banco, agora: Date = new Date()): Ofensiva {
+  const dias = new Set<string>()
+  for (const entrada of Object.values(banco.entradas)) {
+    for (const p of entrada.historico) {
+      const quando = new Date(p.emISO)
+      if (!Number.isNaN(quando.getTime())) dias.add(diaLocal(quando))
+    }
+  }
+
+  if (dias.size === 0) return { dias: 0, recorde: 0, hoje: false }
+
+  const hoje = diaLocal(agora)
+  const ontem = diaLocal(new Date(agora.getTime() - DIA_MS))
+  const jogouHoje = dias.has(hoje)
+
+  // Conta para trás a partir do último dia que conta: hoje, ou ontem se hoje
+  // ainda não houve partida.
+  let atual = 0
+  if (jogouHoje || dias.has(ontem)) {
+    // Meio-dia pela mesma razão do laço do recorde: somar e subtrair 24h a
+    // partir do meio-dia nunca escorrega de dia.
+    const cursor = new Date(agora)
+    cursor.setHours(12, 0, 0, 0)
+    if (!jogouHoje) cursor.setTime(cursor.getTime() - DIA_MS)
+    while (dias.has(diaLocal(cursor))) {
+      atual++
+      cursor.setTime(cursor.getTime() - DIA_MS)
+    }
+  }
+
+  // O recorde: a maior corrida dentro do conjunto. Ordenar e andar é O(n log n)
+  // no número de *dias distintos*, não de partidas.
+  const ordenados = [...dias].sort()
+  let recorde = 0
+  let corrida = 0
+  let anterior: string | null = null
+  for (const dia of ordenados) {
+    // Meio-dia, e não meia-noite, para somar 24h sem cair na véspera nos dias em
+    // que o horário de verão começa ou termina.
+    const seguido =
+      anterior !== null &&
+      diaLocal(new Date(new Date(`${anterior}T12:00:00`).getTime() + DIA_MS)) === dia
+    corrida = seguido ? corrida + 1 : 1
+    if (corrida > recorde) recorde = corrida
+    anterior = dia
+  }
+
+  return { dias: atual, recorde: Math.max(recorde, atual), hoje: jogouHoje }
+}
+
+/**
+ * O quanto a ferrugem daquele jogo pesa: fração perdida × peso. É o que ordena a
+ * lista de enferrujados — perder 30% de um jogo de peso 4 custa mais nota que
+ * perder 30% de uma aritmética, e a ordem tem de dizer isso.
+ */
+const custoDe = (l: LinhaNerdometro) => l.fracao * (1 - l.ferrugem) * l.peso
+
+/**
+ * `agora` é parâmetro, e não `new Date()` lá dentro, porque a ferrugem fez a
+ * nota depender do relógio: sem isto não há como testar "três meses depois" sem
+ * mexer no relógio do processo.
+ */
+export function calcular(banco: Banco, agora: Date = new Date()): Nerdometro {
+  const agoraMs = agora.getTime()
+
   const cru = CRITERIOS.map((c) => {
     const jogo = JOGOS.find((j) => j.id === c.jogoId)
     const entrada = banco.entradas[c.jogoId]
     const recorde = entrada?.recorde.pontuacao ?? 0
-    const fracao = Math.min(1, recorde / c.meta)
+    const { vigente, diasParado, limpa } = lerJanela(entrada, agoraMs, c.meta)
+    // Sem `min(1, …)`: a meta virou o começo do valor cheio, não o fim. Ver
+    // `TETO_DO_JOGO`.
+    const fracao = Math.min(TETO_DO_JOGO, vigente / c.meta + (limpa ? BONUS_DE_LIMPEZA : 0))
 
     return {
       jogoId: c.jogoId,
@@ -843,13 +1319,18 @@ export function calcular(banco: Banco): Nerdometro {
       area: c.area,
       categoria: jogo?.categoria ?? null,
       recorde,
+      vigente,
       meta: c.meta,
       fracao,
+      ferrugem: ferrugemEm(diasParado),
+      diasParado: Math.floor(diasParado),
       peso: c.peso,
       potencial: 0,
       partidas: entrada?.partidas ?? 0,
+      limpa,
       dominado: fracao >= 1,
-      naNota: entraNaNota({ recorde, partidas: entrada?.partidas ?? 0, fracao }),
+      superado: fracao > 1,
+      naNota: entraNaNota({ vigente, partidas: entrada?.partidas ?? 0, fracao }),
     }
   })
 
@@ -865,9 +1346,9 @@ export function calcular(banco: Banco): Nerdometro {
 
   const nota = Math.round(base)
 
-  const indiceFaixa = FAIXAS.findIndex((f) => nota >= f.minimo)
-  const faixa = FAIXAS[indiceFaixa] ?? (FAIXAS[FAIXAS.length - 1] as Faixa)
-  const acima = indiceFaixa > 0 ? FAIXAS[indiceFaixa - 1] : undefined
+  const indiceFaixa = degrauDe(nota)
+  const faixa = FAIXAS[indiceFaixa] as Faixa
+  const acima = FAIXAS[indiceFaixa + 1]
 
   const areas = AREAS.map((area): NotaArea => {
     const daArea = linhas.filter((l) => l.area === area)
@@ -905,6 +1386,18 @@ export function calcular(banco: Banco): Nerdometro {
     nota,
     faixa,
     proximaFaixa: acima ? { faixa: acima, falta: acima.minimo - nota } : null,
+    // No topo não há próximo elo, mas há para onde crescer: o arco passa a medir
+    // o caminho de `Ultra Virgem` até `NOTA_MAXIMA`, que é o teto de verdade da
+    // escala. Antes ele ficava cheio no instante em que a pessoa chegava lá, e
+    // parava de dizer qualquer coisa justamente para quem mais joga.
+    progressoNoDegrau: acima
+      ? Math.round(((nota - faixa.minimo) / (acima.minimo - faixa.minimo)) * 100)
+      : Math.min(
+          100,
+          Math.round(
+            ((nota - faixa.minimo) / Math.max(1, NOTA_MAXIMA - faixa.minimo)) * 100,
+          ),
+        ),
     comoSubir,
     subirPedeMaisDeUmJogo,
     linhas,
@@ -912,7 +1405,18 @@ export function calcular(banco: Banco): Nerdometro {
     categorias,
     proximoPasso: [...linhas].sort((a, b) => b.potencial - a.potencial)[0] ?? null,
     jogados: linhas.filter((l) => l.naNota).length,
-    emExperiencia: linhas.filter((l) => l.recorde > 0 && !l.naNota),
+    emExperiencia: linhas.filter((l) => l.vigente > 0 && !l.naNota),
+    enferrujados: linhas
+      .filter((l) => l.naNota && l.ferrugem < 1)
+      .sort((a, b) => custoDe(b) - custoDe(a)),
+    // Contra a mesma média sem ferrugem nenhuma: é a leitura que responde "por
+    // que a minha nota caiu se eu não joguei pior".
+    podeCertificar: faixa.indice >= indiceDoCertificado(),
+    ofensiva: ofensiva(banco, agora),
+    custoDaFerrugem: Math.max(
+      0,
+      Math.round(media(linhas.map((l) => ({ ...l, ferrugem: 1 })))) - nota,
+    ),
     total: linhas.length,
     dominados: linhas.filter((l) => l.dominado).length,
     partidas: todas.reduce((s, e) => s + e.partidas, 0),

@@ -1,9 +1,46 @@
 import { describe, expect, it } from 'vitest'
 import { JOGOS } from './registry'
-import { calcular, CRITERIOS, CURVA, ESCALA_DE_PESO } from './nerdometro'
-import type { PassoParaSubir } from './nerdometro'
-import type { Banco, Entrada } from './storage'
+import {
+  calcular as medir,
+  CRITERIOS,
+  CURVA,
+  BONUS_DE_LIMPEZA,
+  degrauDe,
+  DIAS_ATE_O_PISO,
+  DIAS_DE_GRACA,
+  ESCALA_DE_PESO,
+  FAIXAS,
+  ferrugemEm,
+  NOTA_MAXIMA,
+  ofensiva,
+  PARTIDAS_NA_JANELA,
+  PATENTES,
+  PISO_DA_FERRUGEM,
+  TETO_DO_JOGO,
+} from './nerdometro'
+import type { Faixa, PassoParaSubir } from './nerdometro'
+import type { Banco, Entrada, Partida } from './storage'
 import { CATEGORIAS } from './types'
+
+/**
+ * O relógio dos testes.
+ *
+ * Desde que a ferrugem entrou, a nota depende de que dia é hoje — e um teste que
+ * chama `new Date()` de verdade passa hoje e falha em dezembro, quando as
+ * partidas fixadas aqui tiverem três meses. Todo teste mede a partir deste
+ * instante; quem precisa de outro dia passa a data explicitamente.
+ */
+const AGORA = new Date('2026-09-16T12:00:00.000Z')
+
+const calcular = (b: Banco, agora: Date = AGORA) => medir(b, agora)
+
+const DIA = 24 * 60 * 60 * 1000
+
+/** O mesmo instante, `dias` depois. */
+const daqui = (dias: number) => new Date(AGORA.getTime() + dias * DIA)
+
+/** Uma data ISO de `dias` atrás — para montar entrada já enferrujada. */
+const emDias = (dias: number) => new Date(AGORA.getTime() - dias * DIA).toISOString()
 
 /**
  * Jogo já estabelecido: duas partidas.
@@ -13,16 +50,27 @@ import { CATEGORIAS } from './types'
  * `estreia()` logo abaixo; todo o resto quer um jogo que já conta, senão cada
  * teste de fórmula estaria medindo a carência sem querer.
  */
-function entrada(pontuacao: number): Entrada {
+function entrada(pontuacao: number, erros = 1): Entrada {
   return {
-    recorde: { pontuacao, duracaoMs: 1000, erros: 0, completou: false, emISO: '2026-09-15T12:00:00.000Z' },
+    recorde: { pontuacao, duracaoMs: 1000, erros, completou: false, emISO: '2026-09-15T12:00:00.000Z' },
     partidas: 2,
     ultimaPontuacao: pontuacao,
     ultimaEmISO: '2026-09-15T12:00:00.000Z',
-    historico: [{ pontuacao, duracaoMs: 1000, erros: 0, emISO: '2026-09-15T12:00:00.000Z', runId: `r-${pontuacao}` }],
+    historico: [{ pontuacao, duracaoMs: 1000, erros, emISO: '2026-09-15T12:00:00.000Z', runId: `r-${pontuacao}` }],
     ultimosRuns: [{ id: `r-${pontuacao}`, pontuacao }],
   }
 }
+
+/**
+ * A mesma partida, sem nenhum erro — a que ganha `BONUS_DE_LIMPEZA` quando
+ * também bate a meta.
+ *
+ * O padrão de `entrada` é **um** erro de propósito: com zero, todo teste que
+ * leva um jogo à meta ganharia 15% de bônus sem pedir, e o número esperado de
+ * meia dúzia de testes de fórmula passaria a medir o bônus sem que o nome deles
+ * dissesse isso.
+ */
+const entradaLimpa = (pontuacao: number) => entrada(pontuacao, 0)
 
 /** Uma partida só: o jogo recém-aberto, ainda em experiência. */
 function estreia(pontuacao: number): Entrada {
@@ -296,6 +344,528 @@ describe('potencial', () => {
   })
 })
 
+/**
+ * A nota deixou de ser catraca.
+ *
+ * Duas peças, e os testes daqui existem para cobrar cada uma no que ela tem de
+ * diferente: a **janela** faz jogar mal custar, a **ferrugem** faz sumir custar.
+ * O que se protege acima de tudo é que o recorde histórico saiu da conta sem
+ * sair da tela — ele continua sendo a marca da pessoa, só parou de ser a régua.
+ */
+describe('a nota não é catraca', () => {
+  /** Uma entrada com placares dados, o mais recente primeiro, todos de hoje. */
+  function comHistorico(pontuacoes: number[], diasAtras = 0): Entrada {
+    const emISO = new Date(AGORA.getTime() - diasAtras * DIA).toISOString()
+    const historico: Partida[] = pontuacoes.map((pontuacao, i) => ({
+      pontuacao,
+      duracaoMs: 1000,
+      erros: 0,
+      emISO,
+      runId: `r-${i}-${pontuacao}`,
+    }))
+
+    return {
+      // O recorde é o maior de todos os tempos, como o `storage` o mantém: é
+      // justamente a divergência entre ele e a janela que estes testes medem.
+      recorde: {
+        pontuacao: Math.max(...pontuacoes),
+        duracaoMs: 1000,
+        erros: 0,
+        completou: false,
+        emISO,
+      },
+      partidas: pontuacoes.length,
+      ultimaPontuacao: pontuacoes[0] as number,
+      ultimaEmISO: emISO,
+      historico,
+      ultimosRuns: [],
+    }
+  }
+
+  const meta = (id: string) => CRITERIOS.find((c) => c.jogoId === id)?.meta as number
+  const linhaDe = (b: Banco, id: string, agora?: Date) =>
+    calcular(b, agora).linhas.find((l) => l.jogoId === id)
+
+  describe('a janela das últimas partidas', () => {
+    it('o que conta é o melhor das cinco últimas, não o recorde de sempre', () => {
+      // 100 casas de π um dia, e as cinco últimas sessões na casa dos 30. A nota
+      // não pode continuar dizendo 100: quem esqueceu, esqueceu.
+      const alto = meta('pi')
+      const b: Banco = { versao: 1, entradas: { pi: comHistorico([30, 28, 33, 31, 29, alto]) } }
+      const l = linhaDe(b, 'pi')
+
+      expect(l?.recorde).toBe(alto)
+      expect(l?.vigente).toBe(33)
+      expect(l?.fracao).toBeCloseTo(33 / alto, 5)
+      expect(l?.dominado).toBe(false)
+    })
+
+    it('uma sessão ruim no meio de boas não derruba nada', () => {
+      // O ponto de cinco partidas em vez de três: a nota mede repertório, não
+      // humor. Uma noite ruim entre quatro boas é ruído.
+      const b: Banco = { versao: 1, entradas: { pi: comHistorico([12, 80, 78, 82, 79]) } }
+      expect(linhaDe(b, 'pi')?.vigente).toBe(82)
+    })
+
+    it('mas cinco ruins seguidas apagam o recorde antigo', () => {
+      const b: Banco = { versao: 1, entradas: { pi: comHistorico([12, 11, 14, 10, 13, 100]) } }
+      const l = linhaDe(b, 'pi')
+      expect(l?.recorde).toBe(100)
+      expect(l?.vigente).toBe(14)
+    })
+
+    it('a janela é exatamente PARTIDAS_NA_JANELA', () => {
+      // A partida boa está na posição N+1: dentro da janela ela contaria, fora
+      // dela não. É o teste que pega um `slice` com o número errado.
+      const dentro = Array(PARTIDAS_NA_JANELA - 1).fill(20).concat([90])
+      const fora = Array(PARTIDAS_NA_JANELA).fill(20).concat([90])
+      const banquinho = (h: number[]): Banco => ({ versao: 1, entradas: { pi: comHistorico(h) } })
+
+      expect(linhaDe(banquinho(dentro), 'pi')?.vigente).toBe(90)
+      expect(linhaDe(banquinho(fora), 'pi')?.vigente).toBe(20)
+    })
+
+    it('banco antigo, sem histórico, ainda vale pelo recorde', () => {
+      // O formato de 2025 não guardava partidas. Zerar a nota dessa gente seria
+      // punir por uma migração de formato.
+      const b: Banco = { versao: 1, entradas: { pi: { ...entrada(60), historico: [] } } }
+      expect(linhaDe(b, 'pi')?.vigente).toBe(60)
+    })
+  })
+
+  describe('a ferrugem', () => {
+    it('a primeira semana não custa nada', () => {
+      const b = banco(['pi', 0.8])
+      expect(linhaDe(b, 'pi', daqui(DIAS_DE_GRACA - 1))?.ferrugem).toBe(1)
+      expect(calcular(b).nota).toBe(calcular(b, daqui(DIAS_DE_GRACA - 1)).nota)
+    })
+
+    it('depois dela, cai em linha reta até o piso — e para ali', () => {
+      const b = banco(['pi', 0.8])
+      const em = (dias: number) => linhaDe(b, 'pi', daqui(dias))?.ferrugem as number
+
+      expect(em(DIAS_DE_GRACA + 1)).toBeLessThan(1)
+      expect(em(DIAS_ATE_O_PISO)).toBeCloseTo(PISO_DA_FERRUGEM, 5)
+      // Largado para sempre não vale zero: quem sumiu ainda sabe o que sabia.
+      expect(em(DIAS_ATE_O_PISO * 10)).toBe(PISO_DA_FERRUGEM)
+      expect(em(3650)).toBe(PISO_DA_FERRUGEM)
+
+      // Monótona: nenhum dia parado devolve nota.
+      for (let d = 0; d < 200; d += 7) expect(em(d)).toBeGreaterThanOrEqual(em(d + 7))
+    })
+
+    it('uma semana sumido custa perto de um ponto e meio de nota', () => {
+      // O número que o dono do app escolheu, cobrado onde ele é sentido: a nota.
+      // Se alguém mexer na graça, no piso ou no prazo sem querer, é aqui que
+      // aparece.
+      const b = banco(...CRITERIOS.map((c) => [c.jogoId, 0.9] as [string, number]))
+      const hoje = calcular(b).nota
+      const semana = calcular(b, daqui(DIAS_DE_GRACA + 7)).nota
+
+      expect(hoje - semana).toBeGreaterThanOrEqual(1)
+      expect(hoje - semana).toBeLessThanOrEqual(2)
+    })
+
+    it('o elo desce junto: é para isso que a ferrugem existe', () => {
+      const b = banco(...CRITERIOS.map((c) => [c.jogoId, 0.95] as [string, number]))
+      const agora = calcular(b)
+      const depois = calcular(b, daqui(DIAS_ATE_O_PISO))
+
+      expect(agora.faixa.indice).toBeGreaterThan(depois.faixa.indice)
+      expect(depois.custoDaFerrugem).toBeGreaterThan(0)
+    })
+
+    it('data ilegível ou relógio para trás não derrubam ninguém', () => {
+      // `Date.parse` devolve NaN para lixo, e máquina com relógio errado manda
+      // data no futuro. Nos dois casos o erro não pode custar nota.
+      const lixo: Banco = {
+        versao: 1,
+        entradas: { pi: { ...entrada(50), ultimaEmISO: 'ontem de tarde' } },
+      }
+      expect(linhaDe(lixo, 'pi')?.ferrugem).toBe(1)
+
+      const futuro = banco(['pi', 0.5])
+      expect(linhaDe(futuro, 'pi', daqui(-400))?.ferrugem).toBe(1)
+    })
+
+    it('a lista de enferrujados é a lista de tarefas, na ordem do prejuízo', () => {
+      // Ordenada por quanto cada um está custando — fração perdida vezes peso —,
+      // porque "revisite estes" só vale se disser por onde começar.
+      const b: Banco = {
+        versao: 1,
+        entradas: {
+          'tabela-periodica': { ...entrada(100), ultimaEmISO: emDias(120) },
+          aritmetica: { ...entrada(30), ultimaEmISO: emDias(120) },
+          pi: entrada(70),
+        },
+      }
+      const m = calcular(b)
+
+      expect(m.enferrujados.map((l) => l.jogoId)).toEqual(['tabela-periodica', 'aritmetica'])
+      expect(m.enferrujados.every((l) => l.ferrugem < 1)).toBe(true)
+      // O que está fresco não entra, e o custo é a diferença para a nota sem
+      // ferrugem nenhuma.
+      expect(m.enferrujados.map((l) => l.jogoId)).not.toContain('pi')
+      expect(m.custoDaFerrugem).toBeGreaterThan(0)
+    })
+
+    it('ferrugemEm é contínua na borda da graça', () => {
+      // Um degrau aqui seria a nota caindo de uma vez no oitavo dia, e ninguém
+      // entenderia por quê.
+      expect(ferrugemEm(DIAS_DE_GRACA)).toBe(1)
+      expect(ferrugemEm(DIAS_DE_GRACA + 0.001)).toBeCloseTo(1, 4)
+    })
+  })
+
+  describe('o que a recomendação passa a pedir', () => {
+    it('o alvo é contado do placar vigente, não do recorde enterrado', () => {
+      // Quem fez 100 em π um dia e anda fazendo 30 precisa ouvir "faltam 20",
+      // não "faltam 0 porque você já fez isso uma vez".
+      const b: Banco = {
+        versao: 1,
+        entradas: {
+          pi: comHistorico([30, 28, 33, 31, 29, 100]),
+          formulas: entrada(Math.round(meta('formulas') * 0.5)),
+        },
+      }
+      const m = calcular(b)
+      const passo = m.comoSubir.find((p) => p.jogoId === 'pi')
+
+      if (passo) {
+        expect(passo.alvo).toBeGreaterThan(33)
+        expect(passo.faltam).toBe(passo.alvo - 33)
+      }
+      // E o jogo volta a ser candidato mesmo tendo batido a meta um dia.
+      expect(m.linhas.find((l) => l.jogoId === 'pi')?.dominado).toBe(false)
+    })
+
+    it('cumprir o alvo alcança o elo de verdade — inclusive zerando a ferrugem', () => {
+      // A promessa da tela, agora com duas coisas mexendo ao mesmo tempo: a
+      // partida nova entra na janela e o relógio daquele jogo volta a zero.
+      const base: Banco = {
+        versao: 1,
+        entradas: {
+          pi: { ...entrada(50), ultimaEmISO: emDias(60) },
+          formulas: { ...entrada(27), ultimaEmISO: emDias(60) },
+        },
+      }
+      const m = calcular(base)
+      const minimo = m.proximaFaixa?.faixa.minimo as number
+
+      for (const p of m.comoSubir) {
+        const cumprido: Banco = {
+          ...base,
+          entradas: { ...base.entradas, [p.jogoId]: entrada(p.alvo) },
+        }
+        expect(calcular(cumprido).nota, p.jogoId).toBeGreaterThanOrEqual(minimo)
+      }
+    })
+  })
+})
+
+/**
+ * A escala aberta: a meta é onde o valor cheio começa, não onde acaba.
+ *
+ * O que se protege aqui são os dois limites que seguram a coisa de pé — o teto
+ * por jogo, sem o qual π (meta 100 num baralho de dez mil casas) viraria o app
+ * inteiro; e a exigência de a partida limpa ter batido a meta, sem a qual o
+ * bônus sairia de graça para quem abandona a partida na terceira carta.
+ */
+describe('passar de 100', () => {
+  const meta = (id: string) => CRITERIOS.find((c) => c.jogoId === id)?.meta as number
+
+  it('superar a meta rende mais, até o teto', () => {
+    const alvo = meta('pi')
+    const emCima = calcular({ versao: 1, entradas: { pi: entrada(Math.round(alvo * 1.15)) } })
+    const noTeto = calcular({ versao: 1, entradas: { pi: entrada(alvo * 10) } })
+
+    expect(emCima.linhas.find((l) => l.jogoId === 'pi')?.fracao).toBeCloseTo(1.15, 2)
+    expect(emCima.nota).toBeGreaterThan(100)
+    // Dez vezes a meta não vale dez vezes: o teto é o que impede um dataset
+    // grande de comprar a nota inteira.
+    expect(noTeto.linhas.find((l) => l.jogoId === 'pi')?.fracao).toBe(TETO_DO_JOGO)
+    expect(noTeto.nota).toBe(NOTA_MAXIMA)
+  })
+
+  it('a meta batida sem errar nada vale o bônus — inclusive onde não dá para superar', () => {
+    // A tabela periódica tem meta 118 num baralho de 118: sem o bônus de
+    // limpeza, o jogo mais pesado do catálogo seria o único sem teto a alcançar.
+    const alvo = meta('tabela-periodica')
+    const suja = calcular({ versao: 1, entradas: { 'tabela-periodica': entrada(alvo) } })
+    const limpa = calcular({ versao: 1, entradas: { 'tabela-periodica': entradaLimpa(alvo) } })
+
+    expect(suja.linhas.find((l) => l.jogoId === 'tabela-periodica')?.fracao).toBe(1)
+    expect(limpa.linhas.find((l) => l.jogoId === 'tabela-periodica')?.fracao).toBeCloseTo(
+      1 + BONUS_DE_LIMPEZA,
+      5,
+    )
+    expect(limpa.linhas.find((l) => l.jogoId === 'tabela-periodica')?.limpa).toBe(true)
+    expect(limpa.nota).toBeGreaterThan(suja.nota)
+  })
+
+  it('partida sem erro que não bateu a meta não ganha bônus nenhum', () => {
+    // Sair na terceira carta sem errar não é maestria, é uma partida curta.
+    const alvo = meta('tabela-periodica')
+    const m = calcular({
+      versao: 1,
+      entradas: { 'tabela-periodica': entradaLimpa(Math.round(alvo * 0.5)) },
+    })
+    const linha = m.linhas.find((l) => l.jogoId === 'tabela-periodica')
+
+    expect(linha?.limpa).toBe(false)
+    expect(linha?.fracao).toBeCloseTo(0.5, 2)
+  })
+
+  it('o bônus também enferruja, como todo o resto', () => {
+    // Ele vive dentro da janela e é multiplicado pela ferrugem: uma limpeza de
+    // quatro meses atrás não segura a nota de quem sumiu.
+    const alvo = meta('tabela-periodica')
+    const b: Banco = { versao: 1, entradas: { 'tabela-periodica': entradaLimpa(alvo) } }
+    expect(calcular(b, daqui(DIAS_ATE_O_PISO)).nota).toBeLessThan(calcular(b).nota)
+  })
+
+  it('quem passou da meta não vira candidato a subir, e o potencial dele é zero', () => {
+    // A recomendação pede pontuação até a meta; para quem já passou dela não há
+    // o que pedir, e simular "chegue à meta" baixaria a nota — o potencial tem
+    // de ser zero, nunca negativo.
+    const m = calcular({ versao: 1, entradas: { nox: entrada(43), pi: entrada(30) } })
+    const linha = m.linhas.find((l) => l.jogoId === 'nox')
+
+    expect(linha?.superado).toBe(true)
+    expect(linha?.potencial).toBe(0)
+    expect(m.comoSubir.map((p) => p.jogoId)).not.toContain('nox')
+  })
+
+  it('a nota máxima é o teto de todos os jogos, e a escala não passa dela', () => {
+    const tudo = calcular({
+      versao: 1,
+      entradas: Object.fromEntries(CRITERIOS.map((c) => [c.jogoId, entrada(c.meta * 5)])),
+    })
+    expect(tudo.nota).toBe(NOTA_MAXIMA)
+    expect(NOTA_MAXIMA).toBeGreaterThan(100)
+  })
+})
+
+/**
+ * A ofensiva: dias seguidos jogando.
+ *
+ * Duas regras que só aparecem na virada do dia, e por isso são as que mais dão
+ * errado: a sequência conta em **dia local** (senão quem joga à noite no Brasil
+ * quebra a própria sequência pelo fuso) e **não morre à meia-noite** — se a
+ * última partida foi ontem, ela está de pé e vence hoje.
+ */
+describe('a ofensiva', () => {
+  /** Uma entrada com partidas nos dias dados, contados para trás a partir de hoje. */
+  function nosDias(...diasAtras: number[]): Entrada {
+    const historico: Partida[] = diasAtras.map((d, i) => ({
+      pontuacao: 10,
+      duracaoMs: 1000,
+      erros: 1,
+      // Meio-dia local: a partida fica no dia que o teste diz, em qualquer fuso.
+      emISO: new Date(new Date(AGORA).setHours(12, 0, 0, 0) - d * DIA).toISOString(),
+      runId: `r${d}-${i}`,
+    }))
+
+    return {
+      recorde: { pontuacao: 10, duracaoMs: 1000, erros: 1, completou: false, emISO: (historico[0] as Partida).emISO },
+      partidas: historico.length,
+      ultimaPontuacao: 10,
+      ultimaEmISO: (historico[0] as Partida).emISO,
+      historico,
+      ultimosRuns: [],
+    }
+  }
+
+  const comPartidas = (...diasAtras: number[]): Banco => ({
+    versao: 1,
+    entradas: { pi: nosDias(...diasAtras) },
+  })
+
+  it('conta os dias seguidos até hoje', () => {
+    const o = ofensiva(comPartidas(0, 1, 2, 3), AGORA)
+    expect(o.dias).toBe(4)
+    expect(o.hoje).toBe(true)
+  })
+
+  it('um buraco quebra a sequência', () => {
+    // Jogou hoje, ontem e anteontem não: a sequência é de um dia, por mais
+    // partidas que existam antes do buraco.
+    expect(ofensiva(comPartidas(0, 3, 4, 5, 6), AGORA).dias).toBe(1)
+  })
+
+  it('jogou ontem e ainda não hoje: a sequência está viva e vence hoje', () => {
+    // Zerar à meia-noite puniria quem acordou e ainda não jogou. A tela cobra
+    // pelo `hoje: false` em vez de apagar o número.
+    const o = ofensiva(comPartidas(1, 2, 3), AGORA)
+    expect(o.dias).toBe(3)
+    expect(o.hoje).toBe(false)
+  })
+
+  it('dois dias sem jogar: a sequência acabou', () => {
+    const o = ofensiva(comPartidas(2, 3, 4), AGORA)
+    expect(o.dias).toBe(0)
+    // Mas o recorde é memória, não estado atual: ele fica.
+    expect(o.recorde).toBe(3)
+  })
+
+  it('várias partidas no mesmo dia contam como um dia só', () => {
+    expect(ofensiva(comPartidas(0, 0, 0, 1), AGORA).dias).toBe(2)
+  })
+
+  it('a sequência atravessa jogos diferentes', () => {
+    // O hábito é de abrir o app, não de jogar sempre o mesmo jogo.
+    const b: Banco = { versao: 1, entradas: { pi: nosDias(0, 1), formulas: nosDias(2, 3) } }
+    expect(ofensiva(b, AGORA).dias).toBe(4)
+  })
+
+  it('o recorde guarda a maior sequência de todas, mesmo a de meses atrás', () => {
+    const b = comPartidas(0, 1, 60, 61, 62, 63, 64)
+    const o = ofensiva(b, AGORA)
+    expect(o.dias).toBe(2)
+    expect(o.recorde).toBe(5)
+  })
+
+  it('banco vazio não tem ofensiva, e isso não é zero de mentira', () => {
+    const o = ofensiva({ versao: 1, entradas: {} }, AGORA)
+    expect(o).toEqual({ dias: 0, recorde: 0, hoje: false })
+  })
+
+  it('sai igual em `calcular`, que é de onde a tela lê', () => {
+    expect(calcular(comPartidas(0, 1, 2)).ofensiva).toEqual(ofensiva(comPartidas(0, 1, 2), AGORA))
+  })
+})
+
+/**
+ * O ranking: cinco patentes, vinte e um elos.
+ *
+ * O que se protege aqui é a escada — que ela seja uma escada mesmo. Os títulos
+ * são derivados de `PATENTES` justamente porque `Nerd IIII` e dois elos com o
+ * mesmo mínimo passam por qualquer revisão de código e só aparecem na tela de
+ * alguém; e o dia em que alguém esticar o ranking outra vez, é aqui que a conta
+ * de romanos, graus e mínimos é cobrada.
+ */
+describe('o ranking', () => {
+  it('é uma escada: mínimos estritamente crescentes, do 0 ao topo', () => {
+    // Estritamente: dois elos com o mesmo mínimo fariam um deles inalcançável —
+    // `degrauDe` devolveria sempre o de cima, e o de baixo viraria letra morta.
+    expect(FAIXAS.length).toBe(21)
+    expect(FAIXAS[0]?.minimo).toBe(0)
+    for (let i = 1; i < FAIXAS.length; i++) {
+      const anterior = FAIXAS[i - 1] as Faixa
+      const atual = FAIXAS[i] as Faixa
+      expect(atual.minimo, `${atual.titulo} não sobe em relação a ${anterior.titulo}`).toBeGreaterThan(
+        anterior.minimo,
+      )
+      expect(atual.indice).toBe(i)
+    }
+  })
+
+  it('cada elo custa mais conhecimento que o anterior', () => {
+    // A promessa da decisão 2: em pontos de nota os elos crescem de 3 para 7, e
+    // em fração das metas — o conhecimento de verdade, depois da curva — a
+    // distância entre vizinhos só aumenta. É isso que faz o topo ser caro sem
+    // que a tabela precise abrir buracos na escala.
+    const fracaoDe = (nota: number) => (nota / 100) ** (1 / CURVA)
+    let anterior = 0
+
+    for (let i = 1; i < FAIXAS.length; i++) {
+      const salto = fracaoDe((FAIXAS[i] as Faixa).minimo) - fracaoDe((FAIXAS[i - 1] as Faixa).minimo)
+      expect(salto, `${(FAIXAS[i] as Faixa).titulo} custa menos que o elo anterior`).toBeGreaterThan(0)
+      // Uma folga de 0,005 porque `Virgem IV → V` (6 pontos) vem logo depois de
+      // `III → IV` (7): a tabela é redonda em pontos de nota, não em fração.
+      expect(salto).toBeGreaterThan(anterior - 0.015)
+      anterior = salto
+    }
+  })
+
+  it('o título é patente e romano, e o romano segue o grau', () => {
+    const romanos = ['I', 'II', 'III', 'IV', 'V']
+
+    for (const p of PATENTES) {
+      const elos = FAIXAS.filter((f) => f.patente === p.nome)
+      expect(elos.length, p.nome).toBe(p.graus.length)
+
+      elos.forEach((f, i) => {
+        if (p.graus.length === 1) {
+          // A patente de elo único não ganha "I": `Ultra Virgem I` prometeria um
+          // `II` que não existe.
+          expect(f.grau).toBeNull()
+          expect(f.romano).toBeNull()
+          expect(f.titulo).toBe(p.nome)
+          return
+        }
+        expect(f.grau).toBe(i + 1)
+        expect(f.romano).toBe(romanos[i])
+        expect(f.titulo).toBe(`${p.nome} ${romanos[i]}`)
+      })
+    }
+
+    expect(new Set(FAIXAS.map((f) => f.titulo)).size).toBe(FAIXAS.length)
+    expect(FAIXAS.every((f) => f.lema.length > 0)).toBe(true)
+  })
+
+  it('degrauDe acha o elo, e a borda pertence ao elo de cima', () => {
+    // O mínimo é inclusivo: quem tirou exatamente 37 é `Nerd I`, não `CDF V`.
+    // A borda é o lugar onde um `>` no lugar de `>=` passaria despercebido.
+    for (const f of FAIXAS) {
+      expect(FAIXAS[degrauDe(f.minimo)]?.titulo, `${f.titulo} no próprio mínimo`).toBe(f.titulo)
+      if (f.indice > 0) {
+        expect(degrauDe(f.minimo - 1), `um ponto abaixo de ${f.titulo}`).toBe(f.indice - 1)
+      }
+    }
+
+    // Fora da escala dos dois lados: a nota é sempre 0 a 100, mas o piso e o
+    // teto não podem depender disso para não devolver `undefined`.
+    expect(degrauDe(-5)).toBe(0)
+    expect(degrauDe(1000)).toBe(FAIXAS.length - 1)
+  })
+
+  it('o arco mede o elo, não a nota', () => {
+    // `progressoNoDegrau` é o que o medidor desenha. Ele tem de bater com o
+    // "faltam N para o próximo" exibido logo ao lado: os dois saem do mesmo par
+    // de mínimos, e divergir seria a tela dizer duas coisas sobre a mesma
+    // conquista.
+    for (const f of [0.2, 0.35, 0.5, 0.65, 0.8, 0.95]) {
+      const m = calcular(banco(...CRITERIOS.map((c) => [c.jogoId, f] as [string, number])))
+      expect(m.progressoNoDegrau).toBeGreaterThanOrEqual(0)
+      expect(m.progressoNoDegrau).toBeLessThanOrEqual(100)
+
+      const proxima = m.proximaFaixa
+      if (!proxima) continue
+
+      const largura = proxima.faixa.minimo - m.faixa.minimo
+      expect(m.progressoNoDegrau).toBe(Math.round(((largura - proxima.falta) / largura) * 100))
+      expect(proxima.falta).toBeGreaterThan(0)
+      expect(proxima.faixa.indice).toBe(m.faixa.indice + 1)
+    }
+  })
+
+  it('banco vazio é o primeiro elo; nota cheia é o último', () => {
+    const zerado = calcular({ versao: 1, entradas: {} })
+    expect(zerado.nota).toBe(0)
+    expect(zerado.faixa.titulo).toBe('Curioso I')
+    expect(zerado.progressoNoDegrau).toBe(0)
+
+    const topo = calcular(banco(['pi', 1]))
+    expect(topo.nota).toBe(100)
+    expect(topo.faixa.titulo).toBe('Ultra Virgem')
+    expect(topo.faixa.indice).toBe(FAIXAS.length - 1)
+    // No topo não há próximo elo, mas há para onde crescer: o arco passa a medir
+    // o caminho de `Ultra Virgem` até `NOTA_MAXIMA`. Com nota 100 ele está no
+    // começo dessa última reta, não cheio.
+    expect(topo.proximaFaixa).toBeNull()
+    expect(topo.progressoNoDegrau).toBe(
+      Math.round(((100 - topo.faixa.minimo) / (NOTA_MAXIMA - topo.faixa.minimo)) * 100),
+    )
+    expect(topo.progressoNoDegrau).toBeLessThan(100)
+
+    // E enche de verdade só no teto da escala.
+    const teto = calcular({ versao: 1, entradas: { pi: entradaLimpa(130) } })
+    expect(teto.nota).toBe(NOTA_MAXIMA)
+    expect(teto.progressoNoDegrau).toBe(100)
+  })
+})
+
 describe('como subir de faixa', () => {
   /** O mesmo banco, com um jogo levado exatamente ao alvo recomendado. */
   function cumprindo(base: Banco, p: PassoParaSubir): Banco {
@@ -376,12 +946,20 @@ describe('como subir de faixa', () => {
    * alvos proporcionais que somados alcançam mesmo.
    */
   describe('quando nenhum jogo sozinho basta', () => {
-    /** Oito critérios na metade da meta: ninguém sozinho sobe, um trio sobe. */
-    const oito = () =>
-      banco(...CRITERIOS.slice(0, 8).map((c) => [c.jogoId, 0.5] as [string, number]))
+    /**
+     * Doze critérios na metade da meta: ninguém sozinho sobe, um trio sobe.
+     *
+     * Eram oito até o ranking de 21 elos entrar. Com as faixas antigas, de 10 a
+     * 15 pontos de largura, oito jogos já bastavam para nenhum deles sozinho
+     * cruzar; com elos de 3 a 7 pontos, um jogo grande sozinho volta a dar conta
+     * e o caso deixa de ser este. O cenário é o mesmo — o que mudou foi quantos
+     * jogos jogados são precisos para produzi-lo.
+     */
+    const doze = () =>
+      banco(...CRITERIOS.slice(0, 12).map((c) => [c.jogoId, 0.5] as [string, number]))
 
     it('o plano somado alcança a faixa — e é isso que a tela promete', () => {
-      const base = oito()
+      const base = doze()
       const m = calcular(base)
       const minimo = m.proximaFaixa?.faixa.minimo as number
 
@@ -403,7 +981,7 @@ describe('como subir de faixa', () => {
       // O ponto da mudança. "Zere os três" não é um pedido que alguém faz; o
       // esforço é repartido igual entre os jogos do plano, em fração do que
       // falta em cada um.
-      const m = calcular(oito())
+      const m = calcular(doze())
       const parciais = m.comoSubir.filter(
         (p) => p.alvo < (CRITERIOS.find((c) => c.jogoId === p.jogoId)?.meta as number),
       )
@@ -413,7 +991,7 @@ describe('como subir de faixa', () => {
     it('todo passo pede mais do que o recorde, e nunca mais que a meta', () => {
       // Um passo com `faltam: 0` seria uma linha na tela mandando fazer o que já
       // está feito; um alvo acima da meta seria pedir além do que dá nota.
-      const m = calcular(oito())
+      const m = calcular(doze())
       for (const p of m.comoSubir) {
         const linha = m.linhas.find((l) => l.jogoId === p.jogoId)
         expect(p.faltam, p.jogoId).toBeGreaterThan(0)
@@ -424,10 +1002,14 @@ describe('como subir de faixa', () => {
   })
 
   it('quando nem três jogos no máximo bastam, diz isso em vez de inventar um alvo', () => {
-    // Catálogo inteiro em 30% da meta: o peso de qualquer jogo é pequeno demais
-    // diante da soma de todos, e nem maxar os três maiores cruza a faixa. Aqui
-    // o alvo volta a ser a meta cheia — é o "mais perto que dá", não promessa.
-    const base = banco(...CRITERIOS.map((c) => [c.jogoId, 0.3] as [string, number]))
+    // Catálogo inteiro em 75% da meta: o peso de qualquer jogo é pequeno demais
+    // diante da soma de todos, e nem maxar os três maiores cruza o elo. Aqui o
+    // alvo volta a ser a meta cheia — é o "mais perto que dá", não promessa.
+    //
+    // Eram 30% quando as faixas tinham de 10 a 15 pontos. O elo de 3 pontos que
+    // mora ali agora se cruza com um jogo só, então o caso de fallback mudou de
+    // endereço: ele vive na parte alta da escada, onde os elos custam 6 e 7.
+    const base = banco(...CRITERIOS.map((c) => [c.jogoId, 0.75] as [string, number]))
     const m = calcular(base)
     const minimo = m.proximaFaixa?.faixa.minimo as number
 
@@ -537,10 +1119,19 @@ describe('a estreia não conta', () => {
     expect(m.jogados).toBe(1)
   })
 
-  it('passar da meta na estreia também vale — recorde acima de 100% conta igual', () => {
+  it('passar da meta na estreia vale, e vale mais que 100', () => {
+    // Antes este teste afirmava o contrário — "recorde acima de 100% conta
+    // igual" —, porque a fração era `min(1, …)`. O teto virou `TETO_DO_JOGO`:
+    // 43 numa meta de 25 é 172%, que a escala corta em 130% e a curva converte
+    // na nota máxima.
     const m = calcular({ versao: 1, entradas: { nox: estreia(43) } })
-    expect(m.linhas.find((l) => l.jogoId === 'nox')?.naNota).toBe(true)
-    expect(m.nota).toBe(100)
+    const linha = m.linhas.find((l) => l.jogoId === 'nox')
+
+    expect(linha?.naNota).toBe(true)
+    expect(linha?.fracao).toBe(TETO_DO_JOGO)
+    expect(linha?.superado).toBe(true)
+    expect(m.nota).toBe(NOTA_MAXIMA)
+    expect(m.nota).toBeGreaterThan(100)
   })
 
   it('a área e a matéria seguem a mesma régua da nota geral', () => {

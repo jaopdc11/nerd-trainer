@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { calcular, PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
+import { calcular, DIAS_DE_GRACA, PARTIDAS_NA_JANELA, PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
 import { VERSAO_ATUAL } from '@/core/storage'
 import type { Banco, Entrada } from '@/core/storage'
 import { MetaNerdometro } from './MetaNerdometro'
@@ -36,8 +36,16 @@ const linhaCom = (entradas: Record<string, Entrada>) =>
 /** A meta real do jogo, tirada do próprio critério — nunca de um 24 digitado. */
 const META = linhaCom({})?.meta as number
 
-function entrada(pontuacao: number, partidas: number): Entrada {
-  const emISO = '2026-09-01T10:00:00.000Z'
+/**
+ * A data é relativa a agora, e não uma constante como era antes.
+ *
+ * Desde que a ferrugem entrou, uma data fixa escrita no teste envelhece: o
+ * `2026-09-01` cravado aqui passava a valer menos a cada semana real, e em dois
+ * meses estes casos — que são sobre carência e meta, não sobre tempo parado —
+ * começariam a falhar sozinhos. Quem quer testar a ferrugem passa `diasAtras`.
+ */
+function entrada(pontuacao: number, partidas: number, diasAtras = 0): Entrada {
+  const emISO = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000).toISOString()
   return {
     recorde: { pontuacao, duracaoMs: 60_000, erros: 0, completou: false, emISO },
     partidas,
@@ -71,12 +79,15 @@ describe('MetaNerdometro', () => {
     expect(t).toContain('a próxima matricula o jogo')
   })
 
-  it('já na nota e abaixo da meta: diz o quanto falta do recorde até a meta', () => {
+  it('já na nota e abaixo da meta: diz o quanto falta do placar vigente até a meta', () => {
     const t = texto({ [JOGO]: entrada(META - 4, PARTIDAS_PARA_ENTRAR) })
 
     expect(t).toContain(`nerdômetro · meta ${META}`)
     expect(t).toContain('já pesa na nota')
-    expect(t).toContain(`recorde de ${META - 4}`)
+    // O placar vigente, e por extenso de onde ele vem: o recorde de sempre
+    // parou de ser a régua, e a tela tem de dizer isso antes da partida.
+    expect(t).toContain(`com ${META - 4}`)
+    expect(t).toContain(`melhor das ${PARTIDAS_NA_JANELA} últimas`)
     expect(t).toContain('faltam 4 para a nota cheia')
     expect(t).not.toContain('em experiência')
   })
@@ -86,10 +97,20 @@ describe('MetaNerdometro', () => {
 
     expect(t).toContain(`meta ${META} batida`)
     expect(t).toContain('nota cheia')
-    expect(t).toContain('não sobe mais')
+    // E que isso não é para sempre: a nota deixou de ser catraca, então a tela
+    // que anuncia o máximo é a mesma que avisa o preço de sumir.
+    expect(t).toContain(`${DIAS_DE_GRACA} dias parado`)
     // Bater a meta na estreia dispensa a segunda partida — se este texto
     // aparecesse aqui, a tela estaria contando uma carência que não existe.
     expect(t).not.toContain('em experiência')
+  })
+
+  it('parado há tempo: diz quanto o jogo vale hoje e que uma partida conserta', () => {
+    const t = texto({ [JOGO]: entrada(META - 4, 5, 60) })
+
+    expect(t).toContain('enferrujado')
+    expect(t).toContain('parado há 60 dias')
+    expect(t).toContain('devolve o valor cheio')
   })
 
   it('jogou e não pontuou: fora da nota, mas sem chamar isso de estreia', () => {

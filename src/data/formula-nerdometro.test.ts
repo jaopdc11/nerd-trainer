@@ -1,12 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { CURVA, PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
 import {
+  BONUS_DE_LIMPEZA,
+  CURVA,
+  DIAS_ATE_O_PISO,
+  DIAS_DE_GRACA,
+  PARTIDAS_NA_JANELA,
+  PARTIDAS_PARA_ENTRAR,
+  PISO_DA_FERRUGEM,
+  TETO_DO_JOGO,
+} from '@/core/nerdometro'
+import {
+  BONUS_NA_FORMULA,
   CURVA_NA_FORMULA,
   FORMULA_CONJUNTO,
+  FORMULA_FERRUGEM,
   FORMULA_FRACAO,
   FORMULA_NOTA,
+  GRACA_NA_FORMULA,
+  JANELA_NA_FORMULA,
   LEGENDA,
   PARTIDAS_NA_FORMULA,
+  PISO_NA_FORMULA,
+  PRAZO_NA_FORMULA,
+  TETO_NA_FORMULA,
 } from './formula-nerdometro'
 
 /**
@@ -31,6 +47,46 @@ describe('a fórmula exibida', () => {
       PARTIDAS_NA_FORMULA,
       'PARTIDAS_PARA_ENTRAR mudou — rode `node scripts/gen-formula-nerdometro.mjs`',
     ).toBe(PARTIDAS_PARA_ENTRAR)
+  })
+
+  it('foi gerada com a janela e a ferrugem que o código usa hoje', () => {
+    // Quatro constantes novas, e todas aparecem escritas na fórmula da tela: a
+    // janela em `v_i`, e a graça, o prazo e o piso dentro de `ρ_i`. Mexer numa
+    // delas sem rodar o gerador põe um número falso numa página que o jogador
+    // abre justamente para conferir a conta.
+    const recado = 'a regra mudou — rode `node scripts/gen-formula-nerdometro.mjs`'
+    expect(JANELA_NA_FORMULA, recado).toBe(PARTIDAS_NA_JANELA)
+    expect(GRACA_NA_FORMULA, recado).toBe(DIAS_DE_GRACA)
+    expect(PRAZO_NA_FORMULA, recado).toBe(DIAS_ATE_O_PISO)
+    expect(PISO_NA_FORMULA, recado).toBe(PISO_DA_FERRUGEM)
+    expect(TETO_NA_FORMULA, recado).toBe(TETO_DO_JOGO)
+    expect(BONUS_NA_FORMULA, recado).toBe(BONUS_DE_LIMPEZA)
+  })
+
+  it('a fração mostra o teto acima de 1, e não o `min(1, …)` de antes', () => {
+    // A escala aberta é a mudança mais fácil de esquecer aqui: a fórmula
+    // continuaria linda dizendo que o teto é 1, e a tela mostraria 112.
+    const texto = FORMULA_FRACAO.replace(/<[^>]+>/g, '')
+    expect(texto).toContain(String(TETO_DO_JOGO).replace('.', ','))
+    expect(texto).toContain(String(BONUS_DE_LIMPEZA).replace('.', ','))
+  })
+
+  it('escreve a ferrugem como função do tempo parado, com os dois ramos', () => {
+    // Sem os dois ramos a fórmula esconderia justamente a parte generosa da
+    // regra: a primeira semana não custa nada, e a queda tem piso.
+    const texto = FORMULA_FERRUGEM.replace(/<[^>]+>/g, '')
+    expect(FORMULA_FERRUGEM.startsWith('<math')).toBe(true)
+    expect(texto, 'faltou a variável de dias parados').toContain('d')
+    expect(texto, 'faltou a graça').toContain(String(DIAS_DE_GRACA))
+    expect(texto, 'faltou o piso').toContain(String(PISO_DA_FERRUGEM).replace('.', ','))
+    expect(texto, 'faltou o trecho da queda').toContain(String(DIAS_ATE_O_PISO - DIAS_DE_GRACA))
+  })
+
+  it('a nota multiplica a fração pela ferrugem antes da curva', () => {
+    // A ordem importa e é a coisa mais fácil de escrever errado aqui: elevar
+    // antes de multiplicar dá outro número. A anotação LaTeX guarda a fonte.
+    const latex = FORMULA_NOTA.match(/x-tex">([\s\S]*?)<\/annotation>/)?.[1] ?? ''
+    expect(latex.replace(/\s+/g, ' ')).toContain('(f_i \\, \\rho_i)^{\\,\\gamma}')
   })
 
   it('escreve quem entra na soma, em vez de deixar J subentendido', () => {
@@ -88,9 +144,9 @@ describe('a fórmula exibida', () => {
   })
 
   it('todo símbolo da fórmula está na legenda', () => {
-    expect(LEGENDA.length).toBeGreaterThanOrEqual(7)
+    expect(LEGENDA.length).toBeGreaterThanOrEqual(10)
     const naLegenda = LEGENDA.map((l) => l.simbolo.replace(/<[^>]+>/g, '')).join(' ')
-    for (const s of ['N', 'J', 'f', 'p', 'r', 'm', 'γ']) {
+    for (const s of ['N', 'J', 'f', 'p', 'v', 'm', 'd', 'γ']) {
       expect(naLegenda, `símbolo ${s} sem explicação`).toContain(s)
     }
     for (const l of LEGENDA) expect(l.oQueE.length).toBeGreaterThan(5)

@@ -1,5 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { CRITERIOS, PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
+import {
+  BONUS_DE_LIMPEZA,
+  CRITERIOS,
+  DIAS_DE_GRACA,
+  FAIXAS,
+  NOTA_MAXIMA,
+  PARTIDAS_NA_JANELA,
+  PARTIDAS_PARA_ENTRAR,
+  PISO_DA_FERRUGEM,
+  TETO_DO_JOGO,
+} from '@/core/nerdometro'
 import { JOGOS, porCategoria } from '@/core/registry'
 import { FormulaNerdometro } from './FormulaNerdometro'
 import { Botao } from './ui'
@@ -71,7 +81,7 @@ function passos(): readonly Passo[] {
       ),
     },
     {
-      titulo: 'O Nerdômetro',
+      titulo: 'O Nerdômetro e o ranking',
       comFormula: true,
       corpo: (
         <>
@@ -82,9 +92,36 @@ function passos(): readonly Passo[] {
             nota.
           </p>
           <p>
+            Essa nota te põe num dos <strong className="text-texto">{FAIXAS.length} elos</strong> do
+            ranking, de {FAIXAS[0]?.titulo} a {FAIXAS[FAIXAS.length - 1]?.titulo}. O medidor mostra
+            o elo, e o arco em volta dele é o quanto falta para o próximo.
+          </p>
+          <p>
             Cada jogo tem uma <strong className="text-texto">meta</strong>, que não é o dataset
-            inteiro: π pede {META_PI} casas, e o dataset tem milhares. A sua fração naquele jogo é
-            o recorde dividido pela meta.
+            inteiro: π pede {META_PI} casas, e o dataset tem milhares. A sua fração naquele jogo é o{' '}
+            <strong className="text-texto">melhor das suas {PARTIDAS_NA_JANELA} últimas partidas</strong>{' '}
+            dividido pela meta — o recorde de sempre fica guardado na tela de recordes, mas quem
+            manda na nota é o que você anda fazendo.
+          </p>
+          <p>
+            E a meta não é o fim: dá para passar dela e a nota vai até{' '}
+            <strong className="text-texto">{NOTA_MAXIMA}</strong>. Onde o baralho é maior que a
+            meta, superá-la rende até {Math.round((TETO_DO_JOGO - 1) * 100)}% a mais; e em qualquer
+            jogo, bater a meta <strong className="text-texto">sem errar nada</strong> vale +
+            {Math.round(BONUS_DE_LIMPEZA * 100)}%.
+          </p>
+          <p>
+            O medidor também conta os <strong className="text-texto">dias seguidos</strong> que você
+            aparece. A ofensiva não vale nota — ela é sobre hábito, e a nota é sobre repertório —,
+            mas é ela que segura a ferrugem longe.
+          </p>
+          <p>
+            E o que você não joga <strong className="text-texto">enferruja</strong>: depois de{' '}
+            {DIAS_DE_GRACA} dias parado, o jogo começa a valer menos na nota, até um piso de{' '}
+            {Math.round(PISO_DA_FERRUGEM * 100)}%. Quer dizer que dá para{' '}
+            <em>cair</em> de elo sumindo — e que uma partida devolve o valor cheio na hora. Os jogos
+            nessa situação aparecem na etiqueta{' '}
+            <span className="text-erro">“enferrujando”</span>, que abre e diz quais são.
           </p>
           <p>
             E a <strong className="text-texto">estreia não conta</strong>: um jogo só entra na nota

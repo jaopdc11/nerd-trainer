@@ -1,7 +1,19 @@
-import { CURVA, CRITERIOS } from '@/core/nerdometro'
+import {
+  BONUS_DE_LIMPEZA,
+  CRITERIOS,
+  CURVA,
+  DIAS_ATE_O_PISO,
+  DIAS_DE_GRACA,
+  NOTA_MAXIMA,
+  PARTIDAS_NA_JANELA,
+  PISO_DA_FERRUGEM,
+  TETO_DO_JOGO,
+} from '@/core/nerdometro'
 import { PI_DECIMAIS } from '@/data/constantes-matematicas'
 import {
   FORMULA_CONJUNTO,
+  FORMULA_FERRUGEM,
+  FORMULA_LIMPEZA,
   FORMULA_FRACAO,
   FORMULA_NOTA,
   LEGENDA,
@@ -57,6 +69,10 @@ export function FormulaNerdometro() {
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
         <div className="mx-auto text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_FRACAO }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
+        <div className="mx-auto text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_LIMPEZA }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
+        <div className="mx-auto text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_FERRUGEM }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: conteúdo estático do bundle */}
         <div className="mx-auto text-suave" dangerouslySetInnerHTML={{ __html: FORMULA_CONJUNTO }} />
       </div>
 
@@ -72,6 +88,34 @@ export function FormulaNerdometro() {
           </div>
         ))}
       </dl>
+
+      <p>
+        A nota <strong className="text-suave">não para em 100</strong>. A meta de cada jogo é onde
+        ele começa a valer cheio, não onde acaba: dali para cima ainda há{' '}
+        {Math.round((TETO_DO_JOGO - 1) * 100)}% de sobra, por duas portas. Uma é{' '}
+        <strong className="text-suave">superar a meta</strong>, que vale onde o baralho é maior que
+        ela — π pede {metaDe('pi')} casas de milhares. A outra é a{' '}
+        <strong className="text-suave">partida limpa</strong>: bater a meta sem errar uma carta vale{' '}
+        +{Math.round(BONUS_DE_LIMPEZA * 100)}%, e é a porta dos jogos em que a meta já é o baralho
+        inteiro. Com tudo no teto, a nota máxima é {NOTA_MAXIMA}.
+      </p>
+
+      <p>
+        O que entra na conta é o{' '}
+        <strong className="text-suave">melhor das suas {PARTIDAS_NA_JANELA} últimas partidas</strong>{' '}
+        em cada jogo, não o recorde de sempre. O recorde continua sendo seu e continua na tela de
+        recordes — ele só deixou de ser a régua. A razão é simples: recorde não desce, e uma nota
+        que só sobe não mede o que você sabe hoje, mede o que você já soube um dia. Uma sessão ruim
+        entre boas não muda nada; {PARTIDAS_NA_JANELA} seguidas, sim.
+      </p>
+
+      <p>
+        E o que você não joga <strong className="text-suave">enferruja</strong>: passados{' '}
+        {DIAS_DE_GRACA} dias sem aparecer, o jogo vai perdendo valor na nota até sobrar{' '}
+        {Math.round(PISO_DA_FERRUGEM * 100)}% dele, em {DIAS_ATE_O_PISO} dias. Uma partida devolve o
+        valor cheio na hora. O piso existe porque quem sumiu por um ano ainda sabe a tabela
+        periódica — o que a ferrugem mede é revisão, não presença.
+      </p>
 
       <p>
         A soma corre só sobre os <strong className="text-suave">jogos jogados</strong>. Jogo

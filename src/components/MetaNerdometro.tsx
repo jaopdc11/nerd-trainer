@@ -1,11 +1,11 @@
-import { PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
+import { DIAS_DE_GRACA, PARTIDAS_NA_JANELA, PARTIDAS_PARA_ENTRAR } from '@/core/nerdometro'
 import type { LinhaNerdometro } from '@/core/nerdometro'
 import { Etiqueta } from './ui'
 
 /**
  * A meta do jogo no Nerdômetro, dita **antes** da partida.
  *
- * Duas regras de `core/nerdometro.ts` o jogador sente na pele e não enxergava:
+ * Quatro regras de `core/nerdometro.ts` o jogador sente na pele e não enxergava:
  *
  * 1. **A meta quase nunca é o baralho inteiro** (`CRITERIOS`). π vale nota cheia
  *    em 100 casas, países em 195 de um tabuleiro de 197. Quem não sabe disso
@@ -15,6 +15,13 @@ import { Etiqueta } from './ui'
  *    Isto só aparecia como a etiqueta "N em experiência" no medidor — ou seja,
  *    *depois* do fato. Jogar e ver a nota parada é exatamente o que faz alguém
  *    procurar bug onde não tem.
+ * 3. **Vale o melhor das últimas partidas** (`PARTIDAS_NA_JANELA`), não o
+ *    recorde de sempre. É a regra que mais surpreende: dá para *perder* nota
+ *    jogando, e quem não souber disso antes de apertar Começar vai descobrir
+ *    depois, do pior jeito.
+ * 4. **Jogo parado enferruja** (`DIAS_DE_GRACA`). Aqui é onde a dívida tem
+ *    endereço: o jogador está justamente na tela do jogo que enferrujou, e uma
+ *    partida agora devolve o valor cheio.
  *
  * **Nada é recalculado aqui.** Tudo vem da `LinhaNerdometro` que `calcular()`
  * devolve: `naNota` e `dominado` já são o veredito da mesma função que soma a
@@ -56,6 +63,9 @@ export function MetaNerdometro({ linha }: { linha: LinhaNerdometro | null }) {
         {estado === 'experiencia' && (
           <Etiqueta className="border-quase/40 text-quase">em experiência</Etiqueta>
         )}
+        {estado === 'enferrujado' && (
+          <Etiqueta className="border-erro/40 text-erro">enferrujado</Etiqueta>
+        )}
         {estado === 'zerado' && <Etiqueta className="text-tenue">fora da nota</Etiqueta>}
       </div>
 
@@ -64,7 +74,7 @@ export function MetaNerdometro({ linha }: { linha: LinhaNerdometro | null }) {
   )
 }
 
-type Estado = 'nunca' | 'zerado' | 'experiencia' | 'naNota' | 'dominado'
+type Estado = 'nunca' | 'zerado' | 'experiencia' | 'naNota' | 'dominado' | 'enferrujado'
 
 /**
  * O estado e a frase, derivados só do que a linha já traz.
@@ -80,22 +90,34 @@ type Estado = 'nunca' | 'zerado' | 'experiencia' | 'naNota' | 'dominado'
  * virar 3 a frase se corrige sozinha em vez de virar mentira bem escrita.
  */
 function ler(l: LinhaNerdometro): { estado: Estado; frase: string } {
+  // A ferrugem vem antes de tudo que já está resolvido: é a única situação em
+  // que a pessoa está perdendo nota agora, parada nesta tela, e a partida que
+  // conserta é a que ela está prestes a jogar.
+  if (l.ferrugem < 1 && l.vigente > 0) {
+    const vale = Math.round(l.ferrugem * 100)
+    return {
+      estado: 'enferrujado',
+      frase: l.dominado
+        ? `você bateu a meta aqui, mas está parado há ${l.diasParado} dias: hoje isto vale ${vale}% na nota. uma partida devolve o valor cheio.`
+        : `parado há ${l.diasParado} dias: seus ${l.vigente} valem ${vale}% na nota. qualquer partida hoje devolve o valor cheio.`,
+    }
+  }
+
   if (l.dominado) {
     return {
       estado: 'dominado',
-      frase:
-        'você já tira nota cheia aqui — daqui para cima o nerdômetro não sobe mais neste jogo.',
+      frase: `você tira nota cheia aqui — e continua tirando enquanto aparecer: a partir de ${DIAS_DE_GRACA} dias parado, o jogo começa a valer menos.`,
     }
   }
 
   if (l.naNota) {
     return {
       estado: 'naNota',
-      frase: `já pesa na nota, com recorde de ${l.recorde}: faltam ${l.meta - l.recorde} para a nota cheia deste jogo.`,
+      frase: `já pesa na nota com ${l.vigente}, seu melhor das ${PARTIDAS_NA_JANELA} últimas partidas: faltam ${l.meta - l.vigente} para a nota cheia deste jogo.`,
     }
   }
 
-  if (l.recorde <= 0) {
+  if (l.vigente <= 0) {
     // Sem ponto nenhum e com partida no histórico: o jogo não está em carência,
     // está zerado. E como as partidas já foram jogadas, o primeiro ponto basta
     // para ele entrar — dizer "jogue de novo" aqui mandaria fazer o que já foi

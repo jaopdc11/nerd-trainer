@@ -338,3 +338,74 @@ body::before {
 .simbolo math {
   font-size: 1.05rem;
 }
+
+/* ── O certificado ──────────────────────────────────────────────────────────
+ *
+ * A folha é um A4 paisagem de verdade, em milímetros, e é isso que faz o
+ * "Salvar como PDF" do navegador sair com o tamanho certo em vez de uma captura
+ * esticada. Ver `src/components/Certificado.tsx` para por que não há biblioteca
+ * de PDF aqui.
+ *
+ * `container-type: size` é o que permite ao conteúdo ser escrito em `cqw`: a
+ * mesma folha serve à tela de 320px e ao papel de 297mm, e a tipografia encolhe
+ * junto em vez de estourar a moldura.
+ */
+.folha {
+  container-type: size;
+  position: relative;
+  /* Três limites, e o terceiro é o que salva a visualização: a folha é deitada,
+   * então a largura que cabe depende da ALTURA da janela. Sem ele, num monitor
+   * de 700px de altura a folha pedia 670px só para ela, o diálogo passava da
+   * tela e o documento aparecia cortado no meio do título — que foi exatamente
+   * como isto nasceu. `19rem` é o resto do diálogo, medido: cabeçalho de duas
+   * linhas, rótulo e campo de nome, rodapé com o botão, os espaçamentos entre
+   * eles e as duas margens. Numa janela de 700px de altura sobra folha de
+   * 560×396 e nada rola.
+   *
+   * `dvh` e não `vh`: no telefone a barra de endereço entra e sai, e `vh`
+   * congela na altura sem barra. */
+  width: min(100%, 297mm, calc((100dvh - 19rem) * 297 / 210));
+  aspect-ratio: 297 / 210;
+  background: #fbf6e9;
+  /* O papel tem de sair impresso; sem isto o navegador "economiza" o fundo e o
+   * diploma sai branco com uma moldura solta no meio. */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+  box-shadow: 0 10px 40px oklch(0 0 0 / 0.45);
+  border-radius: 2px;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  /* `visibility` e não `display`, e a razão é o parentesco: a folha mora dentro
+   * do diálogo, então esconder o diálogo por `display: none` levaria a folha
+   * junto. `visibility` não se propaga contra a vontade — o filho pode voltar a
+   * ficar visível dentro de um pai escondido, que é exatamente o que se quer
+   * aqui: some o diálogo inteiro, fica o documento. */
+  body * {
+    visibility: hidden !important;
+  }
+
+  .folha,
+  .folha * {
+    visibility: visible !important;
+  }
+
+  /* Fora do diálogo e colada na página: o `inset: 0` tira a folha de dentro do
+   * modal rolável, que no papel viraria uma margem branca de tamanho
+   * imprevisível. */
+  .folha {
+    position: fixed;
+    inset: 0;
+    width: 297mm;
+    height: 210mm;
+    max-width: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+}
